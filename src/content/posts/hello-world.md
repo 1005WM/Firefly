@@ -6,6 +6,7 @@ image: ''
 tags: []
 category: ''
 draft: false
+pinned: true
 lang: ''
 slug: hello-world
 ---
