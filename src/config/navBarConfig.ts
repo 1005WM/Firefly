@@ -36,6 +36,15 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 		],
 	});
 
+	// 工具库（原「我的 → 书签导航」，独立出来放在文章之后）
+	// 注意：导航层会把只有一个子项的下拉分组拍平为子项本身，所以这里用直接链接
+	links.push({
+		name: "工具库",
+		url: "/booknav/",
+		icon: "material-symbols:widgets",
+		pageKey: "booknav",
+	});
+
 	//社交及其子菜单
 	links.push({
 		name: "社交",
@@ -64,9 +73,6 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 
 			// 相册
 			LinkPresets.Gallery,
-
-			// 书签导航
-			LinkPresets.Booknav,
 
 			// 哔哩哔哩追番
 			LinkPresets.Bilibili,

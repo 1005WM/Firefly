@@ -3,7 +3,7 @@ import type { BooknavGroup, BooknavPageConfig } from "../types/booknavConfig";
 // 书签导航页面配置
 export const booknavPageConfig: BooknavPageConfig = {
 	// 页面标题，如果留空则使用 i18n 中的翻译
-	title: "",
+	title: "工具库",
 
 	// 页面描述文本，如果留空则使用 i18n 中的翻译
 	description: "",
@@ -84,27 +84,6 @@ export const booknavConfig: BooknavGroup[] = [
 		],
 	},
 	{
-		id: "design",
-		name: "设计",
-		icon: "material-symbols:palette-outline-rounded",
-		desc: "配色、图标与灵感来源",
-		weight: 90,
-		items: [
-			{
-				title: "Iconify",
-				url: "https://icon-sets.iconify.design",
-				desc: "海量开源图标集合搜索",
-				weight: 10,
-			},
-			{
-				title: "iconfont",
-				url: "https://www.iconfont.cn",
-				desc: "阿里巴巴矢量图标库",
-				weight: 9,
-			},
-		],
-	},
-	{
 		id: "tools",
 		name: "工具",
 		icon: "material-symbols:build-outline-rounded",
@@ -150,6 +129,108 @@ export const booknavConfig: BooknavGroup[] = [
 				url: "https://blog.cuteleaf.cn",
 				desc: "飞萤之火自无梦的长夜亮起",
 				weight: 9,
+			},
+		],
+	},
+	{
+		id: "relay",
+		name: "中转站",
+		icon: "material-symbols:swap-horiz-rounded",
+		desc: "AI API 中转与模型聚合网关",
+		weight: 60,
+		items: [
+			// 添加网址的方法：复制下面任意一段，改掉 title / url / desc 即可。
+			// 注意：items 至少要保留 1 条，空分组会被过滤掉，标签就不会显示了。
+			// 模板：
+			// {
+			// 	title: "站点名称",
+			// 	url: "https://example.com",
+			// 	desc: "一句话说明",
+			// 	weight: 10,     // 可选，数字越大越靠前
+			// 	icon: "",       // 可选，留空自动获取站点 favicon
+			// 	enabled: true,  // 可选，改成 false 可临时隐藏
+			// },
+			{
+				title: "Diege AI",
+				url: "https://diegeai.com/register?aff=mjpx",
+				desc: "AI 模型聚合与分发网关，兼容 OpenAI / Claude / Gemini 接口",
+				weight: 10,
+			},
+			{
+				title: "Puaai",
+				url: "https://puaai.xyz/dashboard",
+				desc: "AI API Gateway 控制台",
+				weight: 9,
+			},
+			{
+				title: "QE (newssid)",
+				url: "https://qe.newssid.com/#/login",
+				desc: "AI API 中转服务 · 登录入口",
+				weight: 8,
+			},
+			{
+				title: "Wegoo's API",
+				url: "https://ai.wegoo.site/",
+				desc: "Codex / Claude Code 按量付费 API 中转",
+				weight: 7,
+			},
+			{
+				title: "HeyRoute",
+				url: "https://heyroute.ai/console",
+				desc: "AI 模型 API 接入控制台",
+				weight: 6,
+			},
+		],
+	},
+	{
+		id: "ai-agent",
+		name: "AI智能体",
+		icon: "material-symbols:smart-toy-outline-rounded",
+		desc: "常用 AI 对话助手与智能创作工具",
+		weight: 55,
+		items: [
+			// 添加网址的格式见上方「中转站」分组里的模板注释
+			{
+				title: "DeepSeek",
+				url: "https://www.deepseek.com",
+				desc: "深度求索大模型对话助手",
+				weight: 10,
+			},
+			{
+				title: "豆包",
+				url: "https://www.doubao.com",
+				desc: "字节跳动旗下 AI 智能助手",
+				weight: 9,
+			},
+			{
+				title: "Kimi",
+				url: "https://www.kimi.com",
+				desc: "月之暗面 AI 助手，长文本与智能体任务",
+				weight: 8,
+			},
+			{
+				title: "ChatGPT",
+				url: "https://chatgpt.com",
+				desc: "OpenAI 的 AI 对话助手",
+				weight: 7,
+			},
+			{
+				title: "Claude",
+				url: "https://claude.ai",
+				desc: "Anthropic 的 AI 助手",
+				weight: 6,
+			},
+			{
+				title: "Gemini",
+				url: "https://gemini.google.com",
+				desc: "Google 的 AI 助手",
+				weight: 5,
+			},
+			{
+				title: "即梦 AI",
+				url: "https://jimeng.jianying.com",
+				desc: "一站式 AI 绘画与 AIGC 视频创作平台",
+				weight: 4,
 			},
 		],
 	},
