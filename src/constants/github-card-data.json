@@ -1,4 +1,28 @@
 {
+	"1005wm/20th-smart-car": {
+		"description": "一个菜鸡的智能车代码（20届疯狂电路）",
+		"language": "C",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/110831876?v=4",
+		"license": null
+	},
+	"1005wm/binarykeyboard": {
+		"description": "可爱二进制键盘",
+		"language": "C",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/110831876?v=4",
+		"license": "GPL-3.0"
+	},
+	"1005wm/ros2-navigation": {
+		"description": null,
+		"language": "Python",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/110831876?v=4",
+		"license": null
+	},
+	"1005wm/xuelema": {
+		"description": null,
+		"language": "Kotlin",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/110831876?v=4",
+		"license": null
+	},
 	"cuteleaf/firefly": {
 		"description": "🍀Firefly, fresh and aesthetic Astro blog theme template. ",
 		"language": "Astro",
