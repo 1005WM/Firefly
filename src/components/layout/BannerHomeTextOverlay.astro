@@ -1,7 +1,8 @@
 ---
 import { Icon } from "astro-icon/components";
+import ImageWrapper from "@/components/common/ImageWrapper.astro";
 import TypewriterText from "@/components/features/TypewriterText.astro";
-import { backgroundWallpaper } from "@/config";
+import { backgroundWallpaper, profileConfig, siteConfig } from "@/config";
 import { encodeMailto, MAILTO_ONCLICK_SCRIPT } from "@/utils/email-utils";
 
 interface Props {
@@ -13,11 +14,33 @@ const { showHomeText, initialRandomSubtitle } = Astro.props;
 const homeText = backgroundWallpaper.common?.homeText;
 const homeTextLinks = homeText?.links;
 const homeTextLinksEnable = homeText?.linksEnable !== false;
+const brand = siteConfig.navbar.title || siteConfig.title;
+const wordmark = brand.replace(/\s+Blog$/i, "");
 ---
 {homeText?.enable && (
     <div class={`banner-home-text-overlay absolute inset-0 z-20 flex items-center justify-center ${!showHomeText ? 'hidden' : ''}`}>
-        <div class="w-4/5 lg:w-3/4 text-center mb-0">
-            <div class="flex flex-col">
+        <span class="home-viewfinder" aria-hidden="true">
+            <span class="home-viewfinder-corner top-left"></span>
+            <span class="home-viewfinder-corner top-right"></span>
+            <span class="home-viewfinder-corner bottom-left"></span>
+            <span class="home-viewfinder-corner bottom-right"></span>
+            <span class="home-viewfinder-caption">FIELD NOTES <span>01</span></span>
+        </span>
+        <span class="field-camera-meta" aria-hidden="true">MNL<br />1/125<br />OPEN<br />01</span>
+        <span class="field-hero-rail" aria-hidden="true"><strong>博客</strong><span>{profileConfig.name} · FIELD NOTES</span></span>
+        <div class="field-hero-content">
+            <div class="field-hero-identity">
+                <span class="field-hero-kicker">[ {siteConfig.subtitle} ]</span>
+                <span class="field-hero-wordmark">{wordmark}</span>
+                <span class="field-hero-badge">{brand}</span>
+                {profileConfig.avatar && (
+                    <div class="field-hero-avatar">
+                        <ImageWrapper src={profileConfig.avatar} alt="" width={112} height={112} loading="eager" fadeIn={false} showLqip={false} showOverlay={false} />
+                    </div>
+                )}
+            </div>
+            <div class="field-hero-dialogue">
+                <span class="field-hero-byline">{profileConfig.name} <span aria-hidden="true">✦</span></span>
                 {homeText.title && (
                     <div class="banner-title font-bold text-white mb-2 lg:mb-4 leading-tight" style={{ '--banner-title-size': homeText.titleSize || "3rem" }}>
                         {homeText.title}
@@ -71,6 +94,71 @@ const homeTextLinksEnable = homeText?.linksEnable !== false;
         </div>
     </div>
 )}
+
+<style>
+    .home-viewfinder {
+        position: absolute;
+        inset: clamp(5.1rem, 14%, 7rem) clamp(1.25rem, 6vw, 6rem)
+            clamp(4.5rem, 16%, 7rem);
+        color: rgb(245 253 255 / 85%);
+        pointer-events: none;
+    }
+
+    .home-viewfinder-corner {
+        position: absolute;
+        inline-size: clamp(1rem, 2.5vw, 2rem);
+        block-size: clamp(1rem, 2.5vw, 2rem);
+        border: 1px solid currentColor;
+        filter: drop-shadow(0 1px 4px rgb(5 10 25 / 90%));
+    }
+
+    .top-left {
+        inset: 0 auto auto 0;
+        border-right: 0;
+        border-bottom: 0;
+    }
+
+    .top-right {
+        inset: 0 0 auto auto;
+        border-left: 0;
+        border-bottom: 0;
+    }
+
+    .bottom-left {
+        inset: auto auto 0 0;
+        border-right: 0;
+        border-top: 0;
+    }
+
+    .bottom-right {
+        inset: auto 0 0 auto;
+        border-left: 0;
+        border-top: 0;
+    }
+
+    .home-viewfinder-caption {
+        position: absolute;
+        inset: auto clamp(1.6rem, 3.2vw, 2.75rem) 0 auto;
+        padding: 0.2rem 0.45rem;
+        border-radius: 0.2rem;
+        background: rgb(8 15 30 / 76%);
+        color: #f5fdff;
+        font: 0.65rem/1.3 ui-monospace, monospace;
+        letter-spacing: 0.14em;
+        white-space: nowrap;
+    }
+
+    .home-viewfinder-caption span {
+        margin-inline-start: 0.35rem;
+        color: #b5eedf;
+    }
+
+    @media (max-height: 460px) and (orientation: landscape) {
+        .home-viewfinder {
+            display: none;
+        }
+    }
+</style>
 
 <script is:inline>
     function setRandomSubtitle() {

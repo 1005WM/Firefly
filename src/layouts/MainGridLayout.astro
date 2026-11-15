@@ -8,7 +8,9 @@ import NavMenuPanel from "@components/layout/NavMenuPanel.astro";
 import SideBar from "@components/layout/SideBar.astro";
 import type { MarkdownHeading } from "astro";
 import FloatingControls from "@/components/controls/FloatingControls.astro";
+import PageTitle from "@/components/common/PageTitle.astro";
 import CategoryBar from "@/components/layout/CategoryBar.astro";
+import FieldMobileDock from "@/components/layout/FieldMobileDock.astro";
 import SidebarColumn from "@/components/layout/SidebarColumn.astro";
 import WallpaperSection from "@/components/layout/WallpaperSection.astro";
 import {
@@ -47,6 +49,8 @@ interface Props {
 		minutes?: number;
 	};
 	heading?: string;
+	visibleHeading?: boolean;
+	referencePage?: "article-list" | "collections" | "moments";
 }
 
 const backgroundImages = getBackgroundImages();
@@ -66,7 +70,29 @@ const {
 	encrypted = false,
 	bannerPostMeta,
 	heading,
+	visibleHeading = false,
+	referencePage,
 } = Astro.props;
+
+const section = Astro.url.pathname.slice(import.meta.env.BASE_URL.length).split("/")[0];
+const referenceHeadings: Record<string, { eyebrow: string; wide?: boolean }> = {
+	about: { eyebrow: "About" },
+	archive: { eyebrow: "Archive" },
+	categories: { eyebrow: "Categories" },
+	tags: { eyebrow: "Tags" },
+	series: { eyebrow: "Series" },
+	friends: { eyebrow: "Friends", wide: true },
+	guestbook: { eyebrow: "Guestbook" },
+	projects: { eyebrow: "Projects", wide: true },
+	gallery: { eyebrow: "Album", wide: true },
+	bilibili: { eyebrow: "Collection", wide: true },
+	bangumi: { eyebrow: "Bangumi", wide: true },
+	vndb: { eyebrow: "Visual Novels", wide: true },
+	myanimelist: { eyebrow: "MyAnimeList", wide: true },
+	sponsor: { eyebrow: "Support" },
+};
+const referenceHeading = !referencePage ? referenceHeadings[section] : undefined;
+const referenceKind = referencePage || (referenceHeading && (referenceHeading.wide ? "wide" : "standard"));
 
 const isHomePageCheck = isHomePage(Astro.url.pathname);
 const isPostPage = !!postSlug;
@@ -131,12 +157,16 @@ const {
                 {/* 主内容区 - 始终渲染，确保 Swup 容器存在 */}
                 <main
                     id="swup-container"
-                    class="transition-main"
+                    class="transition-swup-main"
                     data-current-post-category={postCategory || ""}
                 >
-                {/* 为每个页面提供一个隐藏的h1标题，用于SEO和可访问性 */}
-                <h1 class="sr-only">{heading || title}</h1>
-                <div id="content-wrapper" class="onload-animation transition-leaving">
+                <slot name="article-outline" />
+                <div id="content-wrapper" class="onload-animation" data-reference-page={referenceKind} data-reference-heading={referenceHeading ? section : undefined}>
+                    {referenceHeading && title ? (
+                        <PageTitle class="reference-page-heading" title={title} eyebrow={referenceHeading.eyebrow} description={description !== title ? description : undefined} variant="stacked" />
+                    ) : !referencePage && !isPostPage && (
+                        <h1 class={visibleHeading ? "mb-4 px-1 pt-2 text-3xl font-extrabold" : "sr-only"}>{heading || title}</h1>
+                    )}
                     <slot></slot>
                 </div>
             </main>
@@ -173,6 +203,7 @@ const {
 </div>
 
 <FloatingControls headings={headings} encrypted={encrypted} />
+<FieldMobileDock />
 
 <!-- 移动端导航抽屉：渲染为 <body> 直系子元素，脱离导航栏的 transform 包含块才能铺满视口 -->
 <NavMenuPanel links={resolveNavMenuLinks()} />

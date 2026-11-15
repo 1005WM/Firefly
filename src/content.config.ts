@@ -33,6 +33,7 @@ type DynamicData = {
 	published: Date;
 	pinned: boolean;
 	location: string;
+	tags: string[];
 };
 
 type ProjectLink = {
@@ -102,6 +103,7 @@ const dynamicCollection: ContentCollection<DynamicData> = defineCollection({
 		published: z.date(),
 		pinned: z.boolean().optional().default(false),
 		location: z.string().optional().default(""),
+		tags: z.array(z.string()).optional().default([]),
 	}),
 });
 

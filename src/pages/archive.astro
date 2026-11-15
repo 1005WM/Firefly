@@ -1,10 +1,79 @@
 ---
 import ArchivePanel from "@components/controls/ArchivePanel.astro";
+import ArchiveStats from "@/components/layout/ArchiveStats.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
+import "@/styles/reference/archive-panel.css";
+import "@/styles/reference/archive-stats.css";
+import { siteConfig } from "@/config";
+
+import { getSortedPostsList } from "@/utils/content-utils";
+
+const sortedPostsList = await getSortedPostsList();
+const title = i18n(I18nKey.archive);
+const description = "按时间、分类和标签浏览文章";
+
+const timezone = siteConfig.timezone ?? "UTC";
+const yearMonthFormatter = new Intl.DateTimeFormat("en-US", {
+	timeZone: timezone,
+	year: "numeric",
+	month: "numeric",
+});
+function getYearMonth(date: Date): { year: number; month: number } {
+	const parts = yearMonthFormatter.formatToParts(date);
+	return {
+		year: Number(parts.find((part) => part.type === "year")?.value),
+		month: Number(parts.find((part) => part.type === "month")?.value),
+	};
+}
+const currentYearMonth = getYearMonth(new Date());
+const { currentYearPosts, currentMonthPosts } = sortedPostsList.reduce(
+	(counts, post) => {
+		const publishedYearMonth = getYearMonth(post.data.published);
+		if (publishedYearMonth.year === currentYearMonth.year) {
+			counts.currentYearPosts += 1;
+			if (publishedYearMonth.month === currentYearMonth.month) {
+				counts.currentMonthPosts += 1;
+			}
+		}
+		return counts;
+	},
+	{ currentYearPosts: 0, currentMonthPosts: 0 },
+);
+const archivePostSummaries = sortedPostsList.map((post) => ({
+	// 分类来自文件目录（本站不用 category frontmatter）
+	category: post.data.category || null,
+	tags: post.data.tags,
+	published: post.data.published.getTime(),
+}));
 ---
 
-<MainGridLayout title={i18n(I18nKey.archive)}>
-  <ArchivePanel />
+<MainGridLayout title={title} description={description}>
+  <div class="flex w-full rounded-(--radius-large) overflow-hidden relative min-h-32">
+    <div class="reference-archive relative w-full">
+      <ArchiveStats
+        totalPosts={sortedPostsList.length}
+        currentYearPosts={currentYearPosts}
+        currentMonthPosts={currentMonthPosts}
+        currentMonthNumber={currentYearMonth.month}
+        postSummaries={archivePostSummaries}
+
+        totalPostsLabel={"文章总数"}
+        monthPostsLabel={"本月文章"}
+        writingSpanLabel={"写作跨度"}
+        categoryPostsLabel={"分类文章"}
+        tagPostsLabel={"标签文章"}
+
+
+        unavailableLabel={"—"}
+
+
+
+
+        client:load
+      />
+      <ArchivePanel sortedPosts={sortedPostsList} />
+    </div>
+  </div>
 </MainGridLayout>

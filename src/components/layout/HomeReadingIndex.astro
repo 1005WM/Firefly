@@ -1,0 +1,188 @@
+---
+import { Icon } from "astro-icon/components";
+import { siteConfig } from "@/config";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import { getSortedPostsList } from "@/utils/content-utils";
+import { getCategoryUrl, url } from "@/utils/url-utils";
+
+const posts = (await getSortedPostsList()).filter(({ data }) => !data.draft);
+const categoryCounts = new Map<string, number>();
+for (const { data } of posts) {
+	const name = data.category?.trim() || i18n(I18nKey.uncategorized);
+	categoryCounts.set(name, (categoryCounts.get(name) ?? 0) + 1);
+}
+const tagCount = new Set(posts.flatMap(({ data }) => data.tags)).size;
+const categories = [...categoryCounts]
+	.sort(([a, aCount], [b, bCount]) => bCount - aCount || a.localeCompare(b))
+	.slice(0, 3);
+---
+
+<div class="field-ticker" aria-label="站点信息">
+	<span>✦ {siteConfig.navbar.title || siteConfig.title}</span>
+	<span>{siteConfig.subtitle}</span>
+	<a href={url("/archive/")}>{posts.length} 篇文章 · {categoryCounts.size} 个分类 · {tagCount} 个标签</a>
+</div>
+{posts.length > 0 && (
+	<section class="reading-index field-reading-index" id="home-reading-index" aria-labelledby="home-index-heading">
+		<header class="index-header">
+			<div class="index-heading">
+				<span class="index-kicker" aria-hidden="true">CONTEXT / SITE INDEX</span>
+				<h2 id="home-index-heading">地图指南</h2>
+			</div>
+			<a class="index-archive" href={url("/posts/")}>
+				{i18n(I18nKey.postList)}
+				<Icon name="material-symbols:arrow-outward-rounded" aria-hidden="true" />
+			</a>
+		</header>
+		<div class="field-metrics">
+			<a class="field-metric" href={url("/about/")}>
+				<span>PROFILE</span><strong>{siteConfig.title}</strong><span>{siteConfig.subtitle}</span>
+			</a>
+			<a class="field-metric field-metric-archive" href={url("/archive/")}>
+				<span>ARCHIVE</span><strong>文章档案</strong><span>{posts.length} 篇文章 / {categoryCounts.size} 个分类 / {tagCount} 个标签</span>
+			</a>
+		</div>
+		<div class="index-card">
+			<h3 class="index-label">
+				<Icon name="material-symbols:folder-open-outline-rounded" aria-hidden="true" />
+				{i18n(I18nKey.categories)}
+			</h3>
+			<ul class="index-categories">
+				{categories.map(([name, count]) => (
+					<li><a href={getCategoryUrl(name)}><span>{name}</span><span class="index-count">{count}</span></a></li>
+				))}
+			</ul>
+		</div>
+	</section>
+)}
+
+<style>
+	.reading-index {
+		margin-block: 0.85rem 1rem;
+	}
+
+	.index-header,
+	.index-heading,
+	.index-label,
+	.index-archive {
+		display: flex;
+		align-items: center;
+	}
+
+	.index-header {
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding-inline: 0.25rem;
+		margin-block-end: 0.65rem;
+	}
+
+	.index-heading {
+		gap: 0.6rem;
+	}
+
+	.index-heading h2 {
+		font-size: 1rem;
+		font-weight: 700;
+	}
+
+	.index-kicker,
+	.index-count {
+		font-family: ui-monospace, monospace;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.index-kicker {
+		color: var(--btn-content);
+		font-size: 0.65rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+	}
+
+	.index-archive {
+		gap: 0.2rem;
+		min-block-size: 2rem;
+		padding-inline: 0.45rem;
+		border-radius: 0.35rem;
+		color: var(--btn-content);
+		font-size: 0.8rem;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.index-card {
+		min-inline-size: 0;
+		padding: 0.8rem 0.85rem;
+		border: 1px solid var(--line-divider);
+		border-radius: 0.8rem;
+		background: var(--card-bg);
+	}
+
+	.index-label {
+		gap: 0.36rem;
+		margin-block-end: 0.5rem;
+		font-size: 0.78rem;
+		font-weight: 650;
+		color: var(--btn-content);
+	}
+
+	.index-label :global(svg) {
+		inline-size: 1em;
+		block-size: 1em;
+		flex: none;
+	}
+
+	.index-categories {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.index-categories li {
+		border: 1px solid var(--line-divider);
+		border-radius: 99px;
+	}
+
+	.index-categories a {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.35rem 0.85rem;
+		min-block-size: 1.85rem;
+		font-size: 0.78rem;
+		line-height: 1.4;
+		overflow-wrap: anywhere;
+	}
+
+	.index-count {
+		font-size: 0.7rem;
+		white-space: nowrap;
+		color: var(--btn-content);
+	}
+
+	.index-categories a:hover > span:first-child {
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
+	}
+
+	.index-archive:hover {
+		background: var(--btn-regular-bg);
+	}
+
+	.reading-index a:focus-visible {
+		outline: 2px solid var(--btn-content);
+		outline-offset: 2px;
+	}
+
+	@media (pointer: coarse) {
+		.index-categories a {
+			align-items: center;
+			min-block-size: 2.75rem;
+			font-size: 0.875rem;
+		}
+
+		.index-archive {
+			min-block-size: 2.75rem;
+		}
+	}
+</style>

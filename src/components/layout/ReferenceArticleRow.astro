@@ -1,0 +1,50 @@
+---
+import { type CollectionEntry, render } from "astro:content";
+import { Icon } from "astro-icon/components";
+import ImageWrapper from "@/components/common/ImageWrapper.astro";
+import { siteConfig } from "@/config";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import { formatDateToYYYYMMDD } from "@/utils/date-utils";
+import { getCategoryUrl, getFileDirFromPath, getPostUrlBySlug, getTagUrl } from "@/utils/url-utils";
+
+interface Props {
+	entry: CollectionEntry<"posts">;
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+const { remarkPluginFrontmatter } = await render(entry);
+const date = formatDateToYYYYMMDD(data.published).replaceAll("-", "/");
+const count = Number(remarkPluginFrontmatter.words) || 0;
+const category = data.category || i18n(I18nKey.uncategorized);
+const palette = ["var(--reference-gold)", "var(--reference-rose)", "var(--reference-green)", "var(--reference-blue)"];
+const colorIndex = [...category].reduce((sum, char) => sum + char.charCodeAt(0), 0) % palette.length;
+const heading = data.title;
+const summary = data.description || (!data.password ? String(remarkPluginFrontmatter.excerpt || "") : "");
+const href = getPostUrlBySlug(entry.id);
+const tags = data.tags.slice(0, 3);
+const wordCount = count.toLocaleString(siteConfig.lang.replaceAll("_", "-"));
+---
+
+<article class:list={["article-list-row-pinned", !data.image && "reference-article-no-cover"]} style={`--reference-category-color: ${palette[colorIndex]}`}>
+	<div class="article-list-pinned-item__content">
+		<h3 class="article-list-pinned-item__title">
+			<span class="article-list-pinned-item__title-text">{heading}</span>
+		</h3>
+		<div class="article-list-pinned-item__meta">
+			<a class="article-list-pinned-item__taxonomy article-list-pinned-item__taxonomy--category" href={getCategoryUrl(data.category ?? null)}>{category}</a>
+			<span class="article-list-pinned-item__meta-item"><Icon name="material-symbols:calendar-today-outline-rounded" aria-hidden="true" /><time datetime={data.published.toISOString()}>{date}</time></span>
+			{count > 0 && <span class="article-list-pinned-item__meta-item"><Icon name="material-symbols:description-outline-rounded" aria-hidden="true" />{wordCount} {i18n(I18nKey.wordsCount)}</span>}
+			{tags.map((tag) => <a class="article-list-pinned-item__taxonomy article-list-pinned-item__taxonomy--tag" href={getTagUrl(tag)}>{tag}</a>)}
+			{data.tags.length > tags.length && <span class="article-list-pinned-item__tag-overflow">+{data.tags.length - tags.length}</span>}
+		</div>
+		{summary && <p class="article-list-pinned-item__description">{summary}</p>}
+	</div>
+	{data.image && (
+		<div class="article-list-pinned-item__cover-wrap">
+			<ImageWrapper src={data.image} alt="" basePath={getFileDirFromPath(entry.filePath || "")} class="article-list-pinned-item__cover" sizes="(min-width: 768px) 280px, 0px" fadeIn={false} />
+		</div>
+	)}
+	<a class="article-list-pinned-item__surface-link" href={href} aria-label={heading}></a>
+</article>

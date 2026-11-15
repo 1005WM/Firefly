@@ -1,0 +1,25 @@
+---
+import PostListPage from "@/components/layout/PostListPage.astro";
+import { siteConfig } from "@/config";
+import { getSortedPosts } from "@/utils/content-utils";
+import { url } from "@/utils/url-utils";
+
+const posts = await getSortedPosts();
+const size = siteConfig.pagination.postsPerPage;
+const lastPage = Math.max(1, Math.ceil(posts.length / size));
+const page = {
+	data: posts.slice(0, size),
+	currentPage: 1,
+	lastPage,
+	total: posts.length,
+	url: {
+		current: url("/posts/"),
+		prev: undefined,
+		next: lastPage > 1 ? url("/posts/page/2/") : undefined,
+		first: undefined,
+		last: lastPage > 1 ? url(`/posts/page/${lastPage}/`) : undefined,
+	},
+};
+---
+
+<PostListPage page={page} />

@@ -1,0 +1,10 @@
+---
+import HomeReadingIndex from "@/components/layout/HomeReadingIndex.astro";
+import { siteConfig } from "@/config";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import "@/styles/banner-home.css";
+---
+
+<MainGridLayout heading={siteConfig.title}>
+	<HomeReadingIndex />
+</MainGridLayout>

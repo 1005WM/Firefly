@@ -1,0 +1,39 @@
+---
+import { Icon } from "astro-icon/components";
+import { url } from "@/utils/url-utils";
+---
+
+<nav class="field-dock" aria-label="快捷导航">
+	<a href={url("/")}><Icon name="material-symbols:home-outline-rounded" aria-hidden="true" /><span>首页</span></a>
+	<button type="button" id="field-dock-search" data-field-trigger="search-switch" aria-controls="search-panel" aria-expanded="false">
+		<Icon name="material-symbols:search-rounded" aria-hidden="true" /><span>搜索</span>
+	</button>
+	<button type="button" id="field-dock-menu" class="field-dock-menu" data-field-trigger="nav-menu-switch" aria-controls="nav-menu-panel" aria-expanded="false" aria-label="菜单" aria-haspopup="dialog">
+		<Icon name="material-symbols:menu-rounded" aria-hidden="true" />
+	</button>
+	<button type="button" data-field-theme aria-label="切换亮色和暗色">
+		<Icon name="material-symbols:wb-sunny-outline-rounded" aria-hidden="true" /><span>主题</span>
+	</button>
+	<a href={url("/archive/")}><Icon name="material-symbols:inventory-2-outline-rounded" aria-hidden="true" /><span>归档</span></a>
+</nav>
+
+<script>
+	import { DARK_MODE, LIGHT_MODE } from "@/constants/constants";
+	import { setTheme } from "@/utils/setting-utils";
+
+	const dock = document.querySelector<HTMLElement>(".field-dock");
+	if (dock) {
+		dock.addEventListener("click", (event) => {
+			const button = (event.target as Element).closest<HTMLButtonElement>("button");
+			if (!button) return;
+			if (button.hasAttribute("data-field-theme")) {
+				setTheme(document.documentElement.classList.contains("dark") ? LIGHT_MODE : DARK_MODE);
+				return;
+			}
+			const trigger = document.getElementById(button.dataset.fieldTrigger ?? "");
+			if (!trigger) return;
+			event.stopPropagation();
+			trigger.click();
+		});
+	}
+</script>

@@ -1,0 +1,165 @@
+/* Responsive placement for the upstream article outline. */
+#swup-container:has([data-reference-toc]) {
+	--article-toc-body-half: min(30.5rem, calc(50vw - 17.9rem));
+}
+
+.article-toc-rail {
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.25rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
+	--radius-small: 0.25rem;
+	--radius-medium: 0.5rem;
+}
+
+.article-toc-launcher {
+	display: none;
+}
+
+[data-blog-ui] body:has(#article-toc-panel:not([hidden])) #floating-toc-wrapper,
+body.immersive-reading .article-toc-rail {
+	display: none !important;
+}
+
+html.is-changing #swup-container:has(.article-toc-rail),
+html.is-animating #swup-container:has(.article-toc-rail) {
+	transform: none;
+	will-change: opacity;
+}
+
+@media (min-width: 78rem) and (hover: hover) and (pointer: fine) {
+	.article-toc-rail .article-toc-panel {
+		--toc-max-height: min(40rem, calc(100dvh - 20rem));
+	}
+
+	[data-blog-ui] body:has(#article-toc-panel:not([hidden])):not(.immersive-reading) #main-grid > #content-column {
+		max-width: min(61rem, calc(100vw - 35.8rem));
+	}
+}
+
+@media (width < 78rem), (hover: none), (pointer: coarse) {
+	.article-toc-rail:not([data-open]) .article-toc-panel {
+		display: none;
+	}
+
+	.article-toc-launcher {
+		display: inline-flex;
+		position: fixed;
+		left: max(0.75rem, env(safe-area-inset-left));
+		bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4.25rem);
+		z-index: 38;
+		align-items: center;
+		gap: 0.45rem;
+		min-height: 2.5rem;
+		padding: 0.4rem 0.7rem;
+		border: 1px solid var(--line-divider);
+		border-radius: 0.75rem;
+		background: var(--page-bg);
+		color: var(--deep-text);
+		box-shadow: 0 3px 12px rgb(0 0 0 / 12%);
+	}
+
+	.article-toc-launcher svg {
+		width: 1.1rem;
+		height: 1.1rem;
+	}
+
+	.article-toc-rail:has(.is-pending, [hidden]) .article-toc-launcher {
+		display: none;
+	}
+
+	.article-toc-rail .article-toc-panel {
+		--toc-max-height: min(32rem, calc(100dvh - 11rem));
+		top: auto !important;
+		left: max(0.75rem, env(safe-area-inset-left));
+		bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 7.25rem);
+		z-index: 38;
+		width: min(20rem, calc(100vw - 1.5rem));
+		padding: 0.65rem;
+		border: 1px solid var(--line-divider);
+		border-radius: 0.75rem;
+		background: var(--page-bg);
+		box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+	}
+
+	.article-toc-rail .article-toc-panel__view {
+		max-height: calc(var(--toc-max-height) - 1.3rem);
+	}
+}
+
+:root {
+	--qct-accent: #266473;
+	--qct-note: #306d83;
+	--qct-tip: #3f715c;
+	--qct-warning: #87571e;
+	--qct-important: #6f5a8d;
+}
+
+:root.dark {
+	--qct-accent: #8bd4de;
+	--qct-note: #8abbd2;
+	--qct-tip: #98c9ad;
+	--qct-warning: #e3ba81;
+	--qct-important: #c0addc;
+}
+
+main:has([data-reading-palette="ocean"]) .article-toc-rail .article-toc-panel {
+	--article-toc-active: var(--qct-accent);
+}
+
+[data-reading-palette="ocean"] {
+	--qct-surface: color-mix(in oklab, var(--deep-text) 4%, var(--page-bg));
+	--qct-border: color-mix(in oklab, var(--deep-text) 16%, var(--page-bg));
+}
+
+[data-reading-palette="ocean"] .custom-md :is(a[href]:not(.anchor), :not(pre) > code:not([class])) {
+	color: var(--qct-accent);
+}
+
+[data-reading-palette="ocean"] .custom-md :is(h2, h3) {
+	--primary: var(--qct-accent);
+}
+
+[data-reading-palette="ocean"] .custom-md th {
+	background-color: color-mix(in oklab, var(--deep-text) 10%, var(--page-bg));
+	color: var(--deep-text);
+}
+
+[data-reading-palette="ocean"] .custom-md td {
+	background-color: var(--qct-surface);
+}
+
+[data-reading-palette="ocean"] .custom-md tr:nth-child(even) td {
+	background-color: color-mix(in oklab, var(--deep-text) 7%, var(--page-bg));
+}
+
+[data-reading-palette="ocean"] .expressive-code {
+	--ec-codeBg: var(--qct-surface);
+	--ec-frm-edBg: var(--qct-surface);
+	--ec-frm-edTabBarBg: var(--qct-surface);
+	--ec-frm-trmBg: var(--qct-surface);
+	--ec-brdCol: var(--qct-border);
+}
+
+[data-reading-palette="ocean"] .callout[data-callout] {
+	--qct-callout: var(--qct-note);
+	--rc-color-light: var(--qct-callout);
+	--rc-color-dark: var(--qct-callout);
+	border-color: color-mix(in oklab, var(--qct-callout) 50%, var(--qct-border));
+	background-color: color-mix(in oklab, var(--qct-callout) 7%, var(--page-bg));
+}
+
+[data-reading-palette="ocean"] .callout[data-callout="tip"] {
+	--qct-callout: var(--qct-tip);
+}
+
+[data-reading-palette="ocean"] .callout:is([data-callout="warning"], [data-callout="caution"]) {
+	--qct-callout: var(--qct-warning);
+}
+
+[data-reading-palette="ocean"] .callout[data-callout="important"] {
+	--qct-callout: var(--qct-important);
+}

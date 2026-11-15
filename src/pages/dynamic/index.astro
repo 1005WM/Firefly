@@ -2,12 +2,14 @@
 import { Icon } from "astro-icon/components";
 import DynamicFeed from "@/components/pages/dynamic/DynamicFeed.svelte";
 import DynamicItemTemplate from "@/components/pages/dynamic/DynamicItemTemplate.astro";
+import MomentsCover from "@/components/pages/dynamic/MomentsCover.astro";
 import { commentConfig, dynamicConfig, siteConfig } from "@/config";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
 import "@/styles/pages/common.css";
 import "@/styles/pages/dynamic.css";
+import "@/styles/reference/moments-filter.css";
 import { url } from "@/utils/url-utils";
 
 if (!siteConfig.pages.dynamic) {
@@ -29,58 +31,56 @@ const dataUrl = dynamicConfig.apiUrl?.startsWith("http")
 const memos = dynamicConfig.memos;
 ---
 
-<MainGridLayout title={title} description={description}>
-	<section class="page-shell" aria-labelledby="dynamic-page-title">
-		<div>
-			<header class="page-header card-base">
-				<div class="page-heading">
-					<div class="page-icon" aria-hidden="true">
-						<Icon name="material-symbols:forum-rounded" />
+<MainGridLayout title={title} description={description} referencePage="moments">
+	<section class="page-shell wx-layout" aria-label={title}>
+		<aside class="wx-filter" aria-label="动态筛选">
+			<div class="wx-filter__block">
+				<label class="wx-filter__search">
+					<Icon name="material-symbols:search-rounded" aria-hidden="true" />
+					<input type="search" data-dynamic-search class="wx-filter__input" placeholder={i18n(I18nKey.dynamicSearch)} aria-label={i18n(I18nKey.dynamicSearch)} />
+				</label>
+			</div>
+			<details class="wx-filter__block wx-filter__details reference-moment-calendar" open>
+				<summary class="wx-filter__summary"><Icon name="material-symbols:calendar-month-outline-rounded" aria-hidden="true" /> 日历</summary>
+				<div class="wx-cal">
+					<div class="wx-cal__head">
+						<button type="button" class="wx-cal__nav" data-dynamic-month-step="-1" aria-label="上个月"><Icon name="material-symbols:chevron-left-rounded" /></button>
+						<span class="wx-cal__title" data-dynamic-month aria-live="polite"></span>
+						<button type="button" class="wx-cal__nav" data-dynamic-month-step="1" aria-label="下个月"><Icon name="material-symbols:chevron-right-rounded" /></button>
 					</div>
-					<div>
-						<h2 id="dynamic-page-title">{title}</h2>
-						{description && <p>{description}</p>}
-					</div>
+					<div class="wx-cal__week">{["日", "一", "二", "三", "四", "五", "六"].map((day) => <span>{day}</span>)}</div>
+					<div class="wx-cal__grid" data-dynamic-calendar></div>
+					<div class="wx-cal__foot"><button type="button" class="wx-cal__today" data-dynamic-today>回到本月</button></div>
 				</div>
-				<div
-					class="page-count"
-					aria-label={i18n(I18nKey.dynamic)}
-				>
-					<Icon name="material-symbols:dynamic-feed-rounded" />
-					<strong data-dynamic-page-count>0</strong>
-					<span>{i18n(I18nKey.dynamic)}</span>
-				</div>
-				<div class="page-filter">
-					<label class="page-search">
-						<Icon name="material-symbols:search-rounded" />
-						<input
-							type="search"
-							data-dynamic-search
-							placeholder={i18n(I18nKey.dynamicSearch)}
-						/>
-					</label>
-					<label class="page-year-select">
-						<Icon name="material-symbols:calendar-month-rounded" />
-						<select data-year-select aria-label={i18n(I18nKey.year)}>
-							<option value="all">{i18n(I18nKey.dynamicAllYears)}</option>
-						</select>
-						<Icon name="material-symbols:arrow-drop-down-rounded" />
-					</label>
-				</div>
-			</header>
-
-			<DynamicFeed
-				client:load
-				source={dataUrl}
-				{itemsPerPage}
-				showComments={showInlineComments}
-				emptyText={i18n(I18nKey.dynamicEmpty)}
-				noResultsText={i18n(I18nKey.dynamicNoResults)}
-				loadingText={i18n(I18nKey.dynamicLoading)}
-				allYearsText={i18n(I18nKey.dynamicAllYears)}
-				timezone={siteConfig.timezone || "UTC"}
-				{memos}
-			/>
+				<label class="page-year-select">
+					<Icon name="material-symbols:calendar-month-rounded" aria-hidden="true" />
+					<select data-year-select aria-label={i18n(I18nKey.year)}>
+						<option value="all">{i18n(I18nKey.dynamicAllYears)}</option>
+					</select>
+					<Icon name="material-symbols:arrow-drop-down-rounded" aria-hidden="true" />
+				</label>
+			</details>
+			<details class="wx-filter__block wx-filter__details" data-dynamic-tag-panel open hidden>
+				<summary class="wx-filter__summary"><Icon name="material-symbols:tag-rounded" aria-hidden="true" /> {i18n(I18nKey.tags)}</summary>
+				<div class="wx-tags" data-dynamic-tags></div>
+			</details>
+		</aside>
+		<div class="wx-main">
+			<MomentsCover {title} />
+			<div class="wx-feed">
+				<DynamicFeed
+					client:load
+					source={dataUrl}
+					{itemsPerPage}
+					showComments={showInlineComments}
+					emptyText={i18n(I18nKey.dynamicEmpty)}
+					noResultsText={i18n(I18nKey.dynamicNoResults)}
+					loadingText={i18n(I18nKey.dynamicLoading)}
+					allYearsText={i18n(I18nKey.dynamicAllYears)}
+					timezone={siteConfig.timezone || "UTC"}
+					{memos}
+				/>
+			</div>
 
 			<DynamicItemTemplate />
 		</div>

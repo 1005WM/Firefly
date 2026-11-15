@@ -1,0 +1,83 @@
+---
+import type { Page } from "astro";
+import type { CollectionEntry } from "astro:content";
+import Pagination from "@/components/common/Pagination.astro";
+import PageTitle from "@/components/common/PageTitle.astro";
+import AnimatedTabs from "@/components/controls/AnimatedTabs.svelte";
+import ReferenceArticleRow from "@/components/layout/ReferenceArticleRow.astro";
+import { siteConfig } from "@/config";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+interface Props {
+	page: Pick<
+		Page<CollectionEntry<"posts">>,
+		"data" | "currentPage" | "lastPage" | "total" | "url"
+	>;
+}
+
+const { page } = Astro.props;
+const heading = i18n(I18nKey.postList);
+const title = page.currentPage === 1 ? heading : `${heading} · ${page.currentPage}`;
+const pinned = page.data.filter(({ data }) => data.pinned);
+const articles = page.data.filter(({ data }) => !data.pinned);
+---
+
+<MainGridLayout title={title} referencePage="article-list">
+	<article-list-view class="article-list-page" data-article-view={siteConfig.postListLayout.defaultMode || "list"}>
+		<header class="article-list-page__header">
+			<PageTitle title={heading} eyebrow="Posts" description="记录技术与生活。" variant="stacked" />
+		</header>
+		{pinned.length > 0 && (
+			<section class="article-list-pinned" aria-labelledby="pinned-posts">
+				<header class="article-list-pinned__heading">
+					<h2 id="pinned-posts" class="article-list-section-title">{i18n(I18nKey.pinned)}</h2>
+					<div class="article-list-pinned__switch"><AnimatedTabs client:load activeTab={siteConfig.postListLayout.defaultMode || "list"} /></div>
+				</header>
+				<div class="article-list-pinned__collection article-list-vertical">
+					{pinned.map((entry) => <ReferenceArticleRow {entry} />)}
+				</div>
+			</section>
+		)}
+		<section aria-labelledby="regular-posts">
+			<header class="article-list-regular__toolbar">
+				<h2 id="regular-posts" class="article-list-regular__title">文章</h2>
+				<span class="article-list-regular__count">共 <strong>{page.total}</strong> 篇文章</span>
+				{pinned.length === 0 && page.total > 0 && <div class="article-list-pinned__switch"><AnimatedTabs client:load activeTab={siteConfig.postListLayout.defaultMode || "list"} /></div>}
+			</header>
+			<div class="article-list-vertical">
+				{articles.map((entry) => <ReferenceArticleRow {entry} />)}
+				{page.total === 0 && <p class="py-5 text-(--content-meta)">暂无文章</p>}
+			</div>
+		</section>
+	</article-list-view>
+	{page.lastPage > 1 && (
+		<Pagination
+			class="mx-auto onload-animation"
+			page={page}
+			style={`animation-delay: calc(var(--content-delay) + ${page.data.length * 50}ms)`}
+		/>
+	)}
+</MainGridLayout>
+
+<script>
+	class ArticleListView extends HTMLElement {
+		update = (event?: Event) => {
+			const detail = (event as CustomEvent<{ layout?: string }> | undefined)?.detail;
+			const choice = detail?.layout ?? localStorage.getItem("postListLayout");
+			if (choice === "list" || choice === "grid") this.dataset.articleView = choice;
+		};
+
+		connectedCallback() {
+			this.update();
+			window.addEventListener("layoutChange", this.update);
+		}
+
+		disconnectedCallback() {
+			window.removeEventListener("layoutChange", this.update);
+		}
+	}
+
+	if (!customElements.get("article-list-view")) customElements.define("article-list-view", ArticleListView);
+</script>

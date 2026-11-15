@@ -206,7 +206,7 @@ $: if (initialized && (keywordMobile || keywordMobile === "")) {
 <!-- search panel -->
 <div id="search-panel" class="float-panel float-panel-closed search-panel absolute md:w-120
 top-20 left-4 md:left-[unset] right-4 shadow-2xl rounded-2xl p-2"
-     data-floating-panel data-floating-panel-trigger="search-switch search-input-desktop" inert aria-hidden="true">
+     data-floating-panel data-floating-panel-trigger="search-switch search-input-desktop field-dock-search" inert aria-hidden="true">
 
     <!-- search bar inside panel for phone/tablet -->
     <div id="search-bar-inside" class="flex relative lg:hidden transition-all items-center h-11 rounded-xl

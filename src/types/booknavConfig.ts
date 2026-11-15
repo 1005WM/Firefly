@@ -5,6 +5,7 @@ export type BooknavItem = {
 	title: string; // 书签标题
 	url: string; // 书签地址
 	desc?: string; // 书签描述
+	tags?: string[]; // 分组内的筛选标签
 	// 图标，留空则自动获取目标站点的 favicon
 	// 支持三种写法：
 	// 1. 网络图片：https://example.com/logo.png

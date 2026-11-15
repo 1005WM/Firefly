@@ -20,6 +20,7 @@ type DynamicData = {
 	searchText: string;
 	pinned?: boolean;
 	location?: string;
+	tags?: string[];
 };
 
 interface MemosConfig {
@@ -63,6 +64,80 @@ let template: HTMLTemplateElement | null = null;
 let searchInput: HTMLInputElement | null = null;
 let yearSelect: HTMLSelectElement | null = null;
 let restoreAnchorAfterRender = false;
+let selectedDay = "";
+let selectedTag = "";
+let month = new Date();
+let filterPanel: HTMLElement | null = null;
+
+function dateKey(date: Date) {
+	if (!source.startsWith("http") && !memos?.enable) return date.toISOString().slice(0, 10);
+	return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+		.map((part) => String(part).padStart(2, "0")).join("-");
+}
+
+function tagButton(tag: string, count?: number) {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.className = "wx-tag";
+	button.dataset.dynamicTag = tag;
+	button.setAttribute("aria-pressed", String(selectedTag === tag));
+	button.classList.toggle("is-active", selectedTag === tag);
+	button.textContent = `#${tag}`;
+	if (count !== undefined) {
+		const detail = document.createElement("span");
+		detail.className = "wx-tag__count";
+		detail.textContent = String(count);
+		button.append(detail);
+	}
+	return button;
+}
+
+function populateTags() {
+	const list = filterPanel?.querySelector("[data-dynamic-tags]");
+	const panel = filterPanel?.querySelector<HTMLElement>("[data-dynamic-tag-panel]");
+	if (!list || !panel) return;
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		for (const tag of new Set(entry.tags ?? [])) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+	}
+	list.replaceChildren(...[...counts].sort((a, b) => b[1] - a[1]).map(([tag, count]) => tagButton(tag, count)));
+	panel.hidden = counts.size === 0;
+}
+
+function refreshCalendar() {
+	const grid = filterPanel?.querySelector("[data-dynamic-calendar]");
+	const title = filterPanel?.querySelector("[data-dynamic-month]");
+	if (!grid || !title) return;
+	const year = month.getFullYear();
+	const monthIndex = month.getMonth();
+	const today = new Date();
+	const distinctDays = new Set(entries.map(({ published }) => dateKey(new Date(published))));
+	const firstWeekday = new Date(year, monthIndex, 1).getDay();
+	const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+	const prefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}-`;
+	title.textContent = `${year} 年 ${monthIndex + 1} 月`;
+	grid.replaceChildren();
+	for (let i = 0; i < firstWeekday; i++) {
+		const blank = document.createElement("span");
+		blank.className = "wx-cal__cell is-empty";
+		grid.append(blank);
+	}
+	for (let day = 1; day <= daysInMonth; day++) {
+		const key = prefix + String(day).padStart(2, "0");
+		const cell = document.createElement("button");
+		cell.type = "button";
+		cell.className = "wx-cal__cell";
+		cell.classList.toggle("is-today", year === today.getFullYear() && monthIndex === today.getMonth() && day === today.getDate());
+		cell.classList.toggle("has-moments", distinctDays.has(key));
+		cell.classList.toggle("is-active", selectedDay === key);
+		cell.disabled = !distinctDays.has(key);
+		cell.dataset.dynamicDay = key;
+		cell.textContent = String(day);
+		cell.setAttribute("aria-label", key);
+		cell.setAttribute("aria-pressed", String(selectedDay === key));
+		grid.append(cell);
+	}
+}
 
 const pageEntries = $derived(
 	filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
@@ -90,6 +165,8 @@ function applyFilters(resetPage = true) {
 		(entry) =>
 			(year === "all" ||
 				String(new Date(entry.published).getUTCFullYear()) === year) &&
+			(!selectedDay || dateKey(new Date(entry.published)) === selectedDay) &&
+			(!selectedTag || (entry.tags ?? []).includes(selectedTag)) &&
 			(!query || entry.searchText.includes(query)),
 	);
 	if (resetPage) currentPage = 1;
@@ -199,6 +276,7 @@ function createItem(entry: DynamicData) {
 	}
 
 	const content = root.querySelector<HTMLElement>("[data-dynamic-content]");
+	root.querySelector("[data-dynamic-entry-tags]")?.replaceChildren(...(entry.tags ?? []).map((tag) => tagButton(tag)));
 	if (content) {
 		content.id = `${anchorId}-content`;
 		content.innerHTML = entry.html;
@@ -271,6 +349,11 @@ onMount(() => {
 	registerDynamicGallery();
 	registerDynamicInlineComments();
 	const page = list.closest(".page-shell");
+	filterPanel = page?.querySelector<HTMLElement>(".wx-filter") ?? null;
+	if (matchMedia("(max-width: 767px)").matches) {
+		const calendar = filterPanel?.querySelector<HTMLDetailsElement>(".reference-moment-calendar");
+		if (calendar) calendar.open = false;
+	}
 	template =
 		page?.querySelector<HTMLTemplateElement>("[data-dynamic-item-template]") ??
 		null;
@@ -280,8 +363,42 @@ onMount(() => {
 	yearSelect =
 		page?.querySelector<HTMLSelectElement>("[data-year-select]") ?? null;
 	const filter = () => applyFilters();
+	const changeYear = () => {
+		selectedDay = "";
+		if (yearSelect?.value && yearSelect.value !== "all") month = new Date(Number(yearSelect.value), 0, 1);
+		refreshCalendar();
+		applyFilters();
+	};
+	const handleFilterClick = (event: Event) => {
+		if (!(event.target instanceof Element)) return;
+		const button = event.target.closest<HTMLButtonElement>("button");
+		if (!button) return;
+		const { dynamicDay, dynamicMonthStep, dynamicToday, dynamicTag } = button.dataset;
+		if (dynamicTag !== undefined) {
+			selectedTag = selectedTag === dynamicTag ? "" : dynamicTag;
+			populateTags();
+			applyFilters();
+		} else if (dynamicDay) {
+			selectedDay = selectedDay === dynamicDay ? "" : dynamicDay;
+			if (yearSelect) yearSelect.value = "all";
+			refreshCalendar();
+			if (selectedDay) filterPanel?.querySelector<HTMLButtonElement>(`[data-dynamic-day="${selectedDay}"]`)?.focus();
+			applyFilters();
+		} else if (dynamicMonthStep) {
+			month = new Date(month.getFullYear(), month.getMonth() + Number(dynamicMonthStep), 1);
+			refreshCalendar();
+		} else if (dynamicToday !== undefined) {
+			month = new Date();
+			selectedDay = "";
+			if (yearSelect) yearSelect.value = "all";
+			refreshCalendar();
+			applyFilters();
+		}
+	};
 	searchInput?.addEventListener("input", filter);
-	yearSelect?.addEventListener("change", filter);
+	yearSelect?.addEventListener("change", changeYear);
+	page?.addEventListener("click", handleFilterClick);
+	refreshCalendar();
 
 	const load = async () => {
 		try {
@@ -296,6 +413,8 @@ onMount(() => {
 			const countEl = document.querySelector("[data-dynamic-page-count]");
 			if (countEl) countEl.textContent = String(entries.length);
 			populateYears();
+			populateTags();
+			refreshCalendar();
 			currentPage = pageFromUrl();
 			applyFilters(false);
 			const anchorId = decodeURIComponent(window.location.hash.slice(1));
@@ -321,7 +440,8 @@ onMount(() => {
 
 	return () => {
 		searchInput?.removeEventListener("input", filter);
-		yearSelect?.removeEventListener("change", filter);
+		yearSelect?.removeEventListener("change", changeYear);
+		page?.removeEventListener("click", handleFilterClick);
 	};
 });
 </script>

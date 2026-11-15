@@ -42,6 +42,15 @@ import { getCanonicalUrl, url } from "@/utils/url-utils";
 import "@/styles/main.css";
 import "@/styles/immersive-reading.css";
 import "@/styles/variables.styl";
+import "@/styles/field-notes.css";
+import "@/styles/reference/page-title.css";
+import "@/styles/reference/article-list.css";
+import "@/styles/reference/post-hero.css";
+import "@/styles/reference/article-toc-panel.css";
+import "@/styles/reference/article-reading.css";
+import "@/styles/reference/about-social-links.css";
+import "@/styles/reference/interior.css";
+import "@/styles/reference/navigation.css";
 import "@rehype-callouts-theme";
 
 interface Props {
@@ -156,8 +165,9 @@ const ogImageAlt = propsOgImageAlt ?? pageTitle;
 ---
 
 <!doctype html>
-<html lang={siteLang} class="bg-(--page-bg) text-[14px] md:text-[16px]" data-wallpaper-mode={backgroundWallpaper.mode} data-fullscreen-layout={fullscreenLayout} data-has-wallpaper={hasWallpaper ? "" : undefined} data-tag-style={siteConfig.tagStyle ?? "pill"} data-category-style={siteConfig.categoryStyle ?? "rectangle"}>
+<html lang={siteLang} class="bg-(--page-bg) text-[14px] md:text-[16px]" data-blog-ui="field-notes" data-wallpaper-mode={backgroundWallpaper.mode} data-fullscreen-layout={fullscreenLayout} data-has-wallpaper={hasWallpaper ? "" : undefined} data-tag-style={siteConfig.tagStyle ?? "pill"} data-category-style={siteConfig.categoryStyle ?? "rectangle"}>
   <head>
+    <link rel="stylesheet" href="https://fontsapi.zeoseven.com/292/main/result.css" />
     <meta charset="UTF-8" />
     <style is:inline>
 			@layer properties, theme, base, components, utilities;

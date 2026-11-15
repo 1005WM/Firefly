@@ -1,0 +1,18 @@
+---
+import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
+import PostListPage from "@/components/layout/PostListPage.astro";
+import { siteConfig } from "@/config";
+import { getSortedPosts } from "@/utils/content-utils";
+
+export const getStaticPaths = (async ({ paginate }) => {
+	return paginate(await getSortedPosts(), {
+		pageSize: siteConfig.pagination.postsPerPage,
+		format: (path) => path.replace(/\/page\/1\/$/, "/"),
+	}).slice(1);
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+const { page } = Astro.props;
+---
+
+<PostListPage page={page} />

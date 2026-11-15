@@ -1,202 +1,131 @@
 ---
 import { Icon } from "astro-icon/components";
-import AlbumCard from "@/components/pages/gallery/AlbumCard.astro";
 import { galleryConfig, siteConfig } from "@/config";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
-import "@/styles/pages/common.css";
-import { getAlbumCover, scanAlbumPhotos } from "@/utils/gallery-utils";
-import "@/styles/pages/card-grid.css";
+import "@/styles/reference/album.css";
+import { scanAlbumPhotos } from "@/utils/gallery-utils";
+import { url } from "@/utils/url-utils";
 
-// 检查页面是否启用
-if (!siteConfig.pages.gallery) {
-	return Astro.redirect("/404/");
-}
+if (!siteConfig.pages.gallery) return Astro.redirect("/404/");
 
 const title = i18n(I18nKey.gallery);
 const description = i18n(I18nKey.galleryDescription);
-
-// 构建相册数据（扫描照片、获取封面）
-const albums = galleryConfig.albums.map((album) => {
-	const photos = scanAlbumPhotos(album.id);
-	const cover = getAlbumCover(album, photos);
-	return { ...album, cover, photoCount: photos.length };
-});
-
-// 收集所有标签用于筛选
-const allTags = [...new Set(albums.flatMap((a) => a.tags || []))].sort();
+const albums = galleryConfig.albums.map((album) => ({
+	...album,
+	photos: album.password ? [] : scanAlbumPhotos(album.id),
+}));
+const tags = [...new Set(albums.flatMap((album) => album.tags ?? []))].sort();
+const getAlbumSearch = (album: (typeof albums)[number]) =>
+	[album.name, album.description, album.location, ...(album.tags ?? [])].filter(Boolean).join(" ").toLocaleLowerCase();
 ---
 
 <MainGridLayout title={title} description={description}>
-  <div class="page-shell">
-    <!-- 页面标题和描述面板（与下方相册列表分离） -->
-    <div class="card-base z-10 px-9 py-6 mb-4 relative w-full">
-      <div class="mb-4">
-        <div class="page-heading">
-          <div class="page-icon" aria-hidden="true">
-            <Icon name="material-symbols:photo-library" />
-          </div>
-          <div>
-            <h2>{title}</h2>
-            {description && <p>{description}</p>}
-          </div>
-        </div>
-      </div>
-
-      <!-- 搜索框 + 标签筛选 -->
-      {albums.length > 0 && (
-        <gallery-filter class="mb-6">
-          <div class="relative mb-3">
-            <Icon
-              name="material-symbols:search"
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-lg pointer-events-none"
-            />
-            <input
-              type="text"
-              data-search
-              placeholder={i18n(I18nKey.searchAlbums)}
-              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-(--line-divider) bg-transparent text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:border-(--primary) focus:ring-1 focus:ring-(--primary) outline-none transition-all duration-200 text-sm"
-            />
-          </div>
-          {allTags.length > 0 && (
-            <div class="flex flex-wrap gap-2">
-              <button
-                data-tag="all"
-                class="category-pill px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200"
-                data-active
-              >
-                {i18n(I18nKey.all)}
-              </button>
-              {allTags.map((tag) => (
-                <button
-                  data-tag={tag}
-                  class="category-pill px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
-        </gallery-filter>
-      )}
-    </div>
-
-    <!-- 相册卡片网格（独立于标题面板） -->
-    {albums.length > 0 ? (
-      <>
-        <div class="card-grid" style="--card-grid-min-width: 320px">
-          {albums.map((album) => (
-            <AlbumCard
-              id={album.id}
-              name={album.name}
-              cover={album.cover}
-              description={album.description}
-              date={album.date}
-              location={album.location}
-              tags={album.tags}
-              photoCount={album.photoCount}
-              encrypted={!!album.password}
-            />
-          ))}
-        </div>
-        {/* 搜索无结果提示 */}
-        <div class="albums-empty hidden flex-col items-center justify-center py-12 text-neutral-400 dark:text-neutral-500">
-          <Icon name="material-symbols:search-off-rounded" class="text-4xl mb-3" />
-          <div class="text-sm">{i18n(I18nKey.searchNoResults)}</div>
-        </div>
-      </>
-    ) : (
-      <div class="card-base flex flex-col items-center justify-center py-16 text-neutral-400 dark:text-neutral-500">
-        <Icon name="material-symbols:photo-library" class="text-6xl mb-4 opacity-50" />
-        <p class="text-lg">{i18n(I18nKey.galleryNoAlbums)}</p>
-      </div>
-    )}
-  </div>
-
-  <script slot="head" is:inline>
-    if (!customElements.get("gallery-filter")) {
-      class GalleryFilter extends HTMLElement {
-        selectedTag = "all";
-
-        constructor() {
-          super();
-        }
-
-        connectedCallback() {
-          this.addEventListener("click", this.handleClick);
-          const input = this.querySelector("[data-search]");
-          if (input) {
-            input.addEventListener("input", () => this.applyFilters());
-          }
-        }
-
-        disconnectedCallback() {
-          this.removeEventListener("click", this.handleClick);
-        }
-
-        handleClick(e) {
-          const target = e.target;
-          const button = target.closest("button");
-          if (!button) return;
-
-          this.selectedTag = button.dataset.tag;
-          const filters = this.querySelectorAll("button");
-
-          filters.forEach((f) => {
-            f.removeAttribute("data-active");
-          });
-          button.setAttribute("data-active", "");
-
-          this.applyFilters();
-        }
-
-        applyFilters() {
-          const container = this.closest(".page-shell");
-          if (!container) return;
-
-          const input = this.querySelector("[data-search]");
-          const query = (input?.value || "").toLowerCase().trim();
-          const cards = container.querySelectorAll(".album-card");
-
-          let hasVisible = false;
-
-          cards.forEach((card) => {
-            const cardEl = card;
-            const tags = (cardEl.dataset.tags || "").split(",");
-            const name = (cardEl.querySelector(".album-card-title")?.textContent || "").toLowerCase();
-            const desc = (cardEl.querySelector(".album-card-desc")?.textContent || "").toLowerCase();
-            const location = (cardEl.querySelector(".album-card-location")?.textContent || "").toLowerCase();
-
-            const tagMatch =
-              this.selectedTag === "all" ||
-              (this.selectedTag && tags.includes(this.selectedTag));
-            const searchMatch =
-              !query ||
-              name.includes(query) ||
-              desc.includes(query) ||
-              location.includes(query) ||
-              tags.some((t) => t.toLowerCase().includes(query));
-
-            if (tagMatch && searchMatch) {
-              cardEl.style.display = "";
-              cardEl.classList.add("animate-fade-in-up");
-              hasVisible = true;
-            } else {
-              cardEl.style.display = "none";
-              cardEl.classList.remove("animate-fade-in-up");
-            }
-          });
-
-          const emptyEl = container.querySelector(".albums-empty");
-          if (emptyEl) {
-            emptyEl.classList.toggle("hidden", hasVisible);
-            emptyEl.classList.toggle("flex", !hasVisible);
-          }
-        }
-      }
-      customElements.define("gallery-filter", GalleryFilter);
-    }
-  </script>
-
+	<album-wall class="block">
+		<div class="alb-bar">
+			<div class="alb-bar__row">
+				<label class="alb-search">
+					<Icon name="material-symbols:search-rounded" aria-hidden="true" />
+					<input type="search" placeholder="搜索照片 / 相册 / 地点…" aria-label="搜索照片或相册" />
+				</label>
+				<span class="alb-count" data-album-count aria-live="polite">{albums.length} 个相册</span>
+			</div>
+			<div class="alb-bar__row alb-bar__row--tabs">
+				<div class="alb-tabs" role="group" aria-label="按相册筛选">
+					<button class="alb-tab is-active" type="button" data-album-id="" aria-pressed="true">全部</button>
+					{albums.map((album) => (
+						<button class="alb-tab" type="button" data-album-id={album.id} aria-pressed="false">
+							{album.password && <Icon name="material-symbols:lock-outline" class="mr-1 inline" aria-hidden="true" />}{album.name}
+						</button>
+					))}
+				</div>
+				{tags.length > 0 && <div class="alb-tabs alb-tabs--tags" role="group" aria-label="按标签筛选">
+					<span class="alb-tabs__label">标签</span>
+					{tags.map((tag) => <button type="button" class="alb-tab" data-album-tag={tag} aria-pressed="false">{tag}</button>)}
+				</div>}
+			</div>
+		</div>
+		<div class="alb-wall">
+			{albums.flatMap((album) => album.photos.map((src, index) => (
+				<a class="alb-photo" href={src} data-no-swup data-fancybox="album-wall" data-photo-album={album.id} data-photo-search={`${getAlbumSearch(album)} ${src.split("/").pop()?.toLocaleLowerCase() ?? ""}`} data-album-tags={JSON.stringify(album.tags ?? [])}>
+					<img src={src} alt={`${album.name} · ${index + 1}`} loading="lazy" decoding="async" />
+				</a>
+			)))}
+		</div>
+		<p class="py-8 text-center text-(--content-meta)" data-no-album hidden>没有符合条件的内容</p>
+		<nav class="mt-5 flex flex-wrap gap-2 text-sm" aria-label="打开相册">
+			{albums.map((album) => (
+				<a class="rounded-full border border-(--line-divider) px-3 py-1.5 hover:bg-(--btn-plain-bg-hover)" href={url(`/gallery/${album.id}/`)} data-album-link={album.id} data-photo-search={getAlbumSearch(album)} data-album-tags={JSON.stringify(album.tags ?? [])}>
+					{album.password && <Icon name="material-symbols:lock-outline" class="mr-1 inline" aria-hidden="true" />}{album.name} <span aria-hidden="true">↗</span>
+				</a>
+			))}
+		</nav>
+	</album-wall>
 </MainGridLayout>
+
+<script>
+	class AlbumWall extends HTMLElement {
+		private album = "";
+		private tag = "";
+		private controller?: AbortController;
+
+		connectedCallback() {
+			this.controller?.abort();
+			this.controller = new AbortController();
+			const { signal } = this.controller;
+			const search = this.querySelector<HTMLInputElement>("input[type=search]");
+			const count = this.querySelector("[data-album-count]");
+			const empty = this.querySelector<HTMLElement>("[data-no-album]");
+			const buttons = [...this.querySelectorAll<HTMLButtonElement>(".alb-tab")];
+			const photos = [...this.querySelectorAll<HTMLAnchorElement>("[data-photo-album]")];
+			const links = [...this.querySelectorAll<HTMLAnchorElement>("[data-album-link]")];
+			const apply = () => {
+				const query = search?.value.trim().toLocaleLowerCase() || "";
+				const matches = (element: HTMLElement, albumId: string | undefined) =>
+					(!this.album || this.album === albumId) &&
+					(!query || Boolean(element.dataset.photoSearch?.includes(query))) &&
+					(!this.tag || (JSON.parse(element.dataset.albumTags ?? "[]") as string[]).includes(this.tag));
+				const foundAlbums = new Set<string>();
+				for (const photo of photos) {
+					const match = matches(photo, photo.dataset.photoAlbum);
+					photo.hidden = !match;
+					photo.classList.toggle("is-hide", !match);
+					if (match && photo.dataset.photoAlbum) foundAlbums.add(photo.dataset.photoAlbum);
+					if (match) photo.dataset.fancybox = "album-wall";
+					else delete photo.dataset.fancybox;
+				}
+				for (const link of links) {
+					const id = link.dataset.albumLink;
+					const match = matches(link, id) || Boolean(id && foundAlbums.has(id));
+					link.hidden = !match;
+					if (match && id) foundAlbums.add(id);
+				}
+				for (const button of buttons) {
+					const active = button.dataset.albumId === this.album || button.dataset.albumTag === this.tag;
+					button.classList.toggle("is-active", active);
+					button.setAttribute("aria-pressed", String(active));
+				}
+				if (count) count.textContent = `${foundAlbums.size} 个相册`;
+				if (empty) empty.hidden = foundAlbums.size !== 0;
+			};
+			search?.addEventListener("input", apply, { signal });
+			this.addEventListener("click", (event) => {
+				const target = event.target;
+				if (!(target instanceof Element)) return;
+				const button = target.closest<HTMLButtonElement>(".alb-tab");
+				if (!button) return;
+				if (button.dataset.albumId !== undefined) this.album = button.dataset.albumId;
+				if (button.dataset.albumTag !== undefined) this.tag = this.tag === button.dataset.albumTag ? "" : button.dataset.albumTag;
+				apply();
+			}, { signal });
+			apply();
+		}
+
+		disconnectedCallback() {
+			this.controller?.abort();
+		}
+	}
+
+	if (!customElements.get("album-wall")) customElements.define("album-wall", AlbumWall);
+</script>
