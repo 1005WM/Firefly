@@ -6,6 +6,7 @@ description: 青橙战队 ROS 2 哨兵导航工作区（QCT-Nva）的零基础�
 image: './images/qct-nva-cover.avif'
 tags: [ROS 2, 源码阅读, C++, 机器人, Nav2, SLAM]
 category: 源码解析
+readingPalette: ocean
 draft: false
 lang: ''
 slug: qct-nva-dai-ma-zhi-shi

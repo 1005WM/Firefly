@@ -255,7 +255,7 @@ const seriesData = await getSeriesPosts(entry);
   >
     <div
       id="post-container"
-      data-reading-palette={entry.id === "qct-nva-dai-ma-zhi-shi" ? "ocean" : undefined}
+      data-reading-palette={entry.data.readingPalette}
       class:list={[
         "card-base z-10 px-6 md:px-9 pt-6 pb-4 relative w-full ",
         {},

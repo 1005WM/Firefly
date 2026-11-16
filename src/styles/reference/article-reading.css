@@ -91,36 +91,36 @@ html.is-animating #swup-container:has(.article-toc-rail) {
 }
 
 :root {
-	--qct-accent: #266473;
-	--qct-note: #306d83;
-	--qct-tip: #3f715c;
-	--qct-warning: #87571e;
-	--qct-important: #6f5a8d;
+	--ocean-accent: #266473;
+	--ocean-note: #306d83;
+	--ocean-tip: #3f715c;
+	--ocean-warning: #87571e;
+	--ocean-important: #6f5a8d;
 }
 
 :root.dark {
-	--qct-accent: #8bd4de;
-	--qct-note: #8abbd2;
-	--qct-tip: #98c9ad;
-	--qct-warning: #e3ba81;
-	--qct-important: #c0addc;
+	--ocean-accent: #8bd4de;
+	--ocean-note: #8abbd2;
+	--ocean-tip: #98c9ad;
+	--ocean-warning: #e3ba81;
+	--ocean-important: #c0addc;
 }
 
 main:has([data-reading-palette="ocean"]) .article-toc-rail .article-toc-panel {
-	--article-toc-active: var(--qct-accent);
+	--article-toc-active: var(--ocean-accent);
 }
 
 [data-reading-palette="ocean"] {
-	--qct-surface: color-mix(in oklab, var(--deep-text) 4%, var(--page-bg));
-	--qct-border: color-mix(in oklab, var(--deep-text) 16%, var(--page-bg));
+	--ocean-surface: color-mix(in oklab, var(--deep-text) 4%, var(--page-bg));
+	--ocean-border: color-mix(in oklab, var(--deep-text) 16%, var(--page-bg));
 }
 
 [data-reading-palette="ocean"] .custom-md :is(a[href]:not(.anchor), :not(pre) > code:not([class])) {
-	color: var(--qct-accent);
+	color: var(--ocean-accent);
 }
 
 [data-reading-palette="ocean"] .custom-md :is(h2, h3) {
-	--primary: var(--qct-accent);
+	--primary: var(--ocean-accent);
 }
 
 [data-reading-palette="ocean"] .custom-md th {
@@ -129,7 +129,7 @@ main:has([data-reading-palette="ocean"]) .article-toc-rail .article-toc-panel {
 }
 
 [data-reading-palette="ocean"] .custom-md td {
-	background-color: var(--qct-surface);
+	background-color: var(--ocean-surface);
 }
 
 [data-reading-palette="ocean"] .custom-md tr:nth-child(even) td {
@@ -137,29 +137,29 @@ main:has([data-reading-palette="ocean"]) .article-toc-rail .article-toc-panel {
 }
 
 [data-reading-palette="ocean"] .expressive-code {
-	--ec-codeBg: var(--qct-surface);
-	--ec-frm-edBg: var(--qct-surface);
-	--ec-frm-edTabBarBg: var(--qct-surface);
-	--ec-frm-trmBg: var(--qct-surface);
-	--ec-brdCol: var(--qct-border);
+	--ec-codeBg: var(--ocean-surface);
+	--ec-frm-edBg: var(--ocean-surface);
+	--ec-frm-edTabBarBg: var(--ocean-surface);
+	--ec-frm-trmBg: var(--ocean-surface);
+	--ec-brdCol: var(--ocean-border);
 }
 
 [data-reading-palette="ocean"] .callout[data-callout] {
-	--qct-callout: var(--qct-note);
-	--rc-color-light: var(--qct-callout);
-	--rc-color-dark: var(--qct-callout);
-	border-color: color-mix(in oklab, var(--qct-callout) 50%, var(--qct-border));
-	background-color: color-mix(in oklab, var(--qct-callout) 7%, var(--page-bg));
+	--ocean-callout: var(--ocean-note);
+	--rc-color-light: var(--ocean-callout);
+	--rc-color-dark: var(--ocean-callout);
+	border-color: color-mix(in oklab, var(--ocean-callout) 50%, var(--ocean-border));
+	background-color: color-mix(in oklab, var(--ocean-callout) 7%, var(--page-bg));
 }
 
 [data-reading-palette="ocean"] .callout[data-callout="tip"] {
-	--qct-callout: var(--qct-tip);
+	--ocean-callout: var(--ocean-tip);
 }
 
 [data-reading-palette="ocean"] .callout:is([data-callout="warning"], [data-callout="caution"]) {
-	--qct-callout: var(--qct-warning);
+	--ocean-callout: var(--ocean-warning);
 }
 
 [data-reading-palette="ocean"] .callout[data-callout="important"] {
-	--qct-callout: var(--qct-important);
+	--ocean-callout: var(--ocean-important);
 }
