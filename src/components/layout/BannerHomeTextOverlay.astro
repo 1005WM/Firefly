@@ -18,7 +18,7 @@ const brand = siteConfig.navbar.title || siteConfig.title;
 const wordmark = brand.replace(/\s+Blog$/i, "");
 ---
 {homeText?.enable && (
-    <div class={`banner-home-text-overlay absolute inset-0 z-20 flex items-center justify-center ${!showHomeText ? 'hidden' : ''}`}>
+    <home-hero-motion class={`banner-home-text-overlay absolute inset-0 z-20 flex items-center justify-center ${!showHomeText ? 'hidden' : ''}`}>
         <span class="home-viewfinder" aria-hidden="true">
             <span class="home-viewfinder-corner top-left"></span>
             <span class="home-viewfinder-corner top-right"></span>
@@ -92,7 +92,8 @@ const wordmark = brand.replace(/\s+Blog$/i, "");
                 )}
             </div>
         </div>
-    </div>
+        <canvas class="field-hero-rain" aria-hidden="true"></canvas>
+    </home-hero-motion>
 )}
 
 <style>
@@ -159,6 +160,27 @@ const wordmark = brand.replace(/\s+Blog$/i, "");
         }
     }
 </style>
+
+<script>
+    import { attachHeroMotion } from "@/utils/home-hero-motion";
+
+    class HomeHeroMotion extends HTMLElement {
+        private stop?: () => void;
+
+        connectedCallback() {
+            this.stop ??= attachHeroMotion(this);
+        }
+
+        disconnectedCallback() {
+            this.stop?.();
+            this.stop = undefined;
+        }
+    }
+
+    if (!customElements.get("home-hero-motion")) {
+        customElements.define("home-hero-motion", HomeHeroMotion);
+    }
+</script>
 
 <script is:inline>
     function setRandomSubtitle() {

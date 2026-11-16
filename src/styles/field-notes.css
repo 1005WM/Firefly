@@ -312,15 +312,56 @@
 	text-shadow: 0 2px 8px #13151b;
 }
 
+@property --field-hatch-angle {
+	syntax: "<angle>";
+	inherits: false;
+	initial-value: 132deg;
+}
+
 .field-hero-wordmark {
 	color: #fff;
 	font: 950 clamp(5.3rem, 12.4vw, 12rem)/0.94 system-ui, sans-serif;
 	letter-spacing: -0.09em;
 	padding: 0.08em 0.14em 0.13em 0;
-	background-image: repeating-linear-gradient(132deg, rgb(12 14 23 / 42%) 0 1px, transparent 1px 4px), linear-gradient(95deg, #ff6263 5%, #ffb45a 23%, #f7e46e 38%, #77dc92 53%, #56c5f5 70%, #9b8dff 84%, #fa74b1 100%);
+	background-image: repeating-linear-gradient(var(--field-hatch-angle, 132deg), rgb(12 14 23 / 42%) 0 1px, transparent 1px 4px), linear-gradient(95deg, #ff6263 5%, #ffb45a 23%, #f7e46e 38%, #77dc92 53%, #56c5f5 70%, #9b8dff 84%, #fa74b1 100%);
+	background-size: calc(100% + 8px) calc(100% + 8px), 100% 100%;
+	background-repeat: no-repeat;
 	background-clip: text;
 	-webkit-text-fill-color: transparent;
 	filter: drop-shadow(0 5px 12px rgb(0 0 0 / 38%));
+}
+
+.field-hero-rain {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	home-hero-motion[data-hero-visible] .field-hero-wordmark {
+		animation: field-hero-hatch 1s steps(1) infinite;
+	}
+}
+
+/* Stepped pencil strokes echo the reference shader while keeping the text itself sharp. */
+@keyframes field-hero-hatch {
+	0%, 100% { --field-hatch-angle: 132deg; background-position: -2px -3px, 0 0; }
+	12.5% { --field-hatch-angle: 132.5deg; background-position: -5px -1px, 0 0; }
+	25% { --field-hatch-angle: 131.5deg; background-position: -4px -5px, 0 0; }
+	37.5% { --field-hatch-angle: 132.25deg; background-position: -7px -2px, 0 0; }
+	50% { --field-hatch-angle: 131.75deg; background-position: -2px -6px, 0 0; }
+	62.5% { --field-hatch-angle: 132.4deg; background-position: -6px -4px, 0 0; }
+	75% { --field-hatch-angle: 132.1deg; background-position: -3px -7px, 0 0; }
+	87.5% { --field-hatch-angle: 131.6deg; background-position: -3px -2px, 0 0; }
+}
+
+@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+	.field-hero-rain {
+		display: none;
+	}
 }
 
 .field-hero-badge {
