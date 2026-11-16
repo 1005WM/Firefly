@@ -21,7 +21,23 @@ const { page } = Astro.props;
 const heading = i18n(I18nKey.postList);
 const title = page.currentPage === 1 ? heading : `${heading} · ${page.currentPage}`;
 const pinned = page.data.filter(({ data }) => data.pinned);
-const articles = page.data.filter(({ data }) => !data.pinned);
+const topics = [
+	{ id: "technical-analysis", label: "技术分析", aliases: ["嵌入式", "源码解析"] },
+	{ id: "recommendations", label: "好物分享", aliases: [] },
+	{ id: "quality-tools", label: "优质工具", aliases: [] },
+	{ id: "resources", label: "资源整理", aliases: [] },
+];
+const grouped = topics.map(({ id, label }) => ({ id, label, posts: [] as CollectionEntry<"posts">[] }));
+const other = { id: "other-posts", label: "其他文章", posts: [] as CollectionEntry<"posts">[] };
+for (const entry of page.data) {
+	if (entry.data.pinned) continue;
+	const category = entry.data.category?.trim() ?? "";
+	const index = topics.findIndex(({ label, aliases }) => label === category || aliases.includes(category));
+	(grouped[index] ?? other).posts.push(entry);
+}
+const topicsToShow = grouped.filter(({ posts }) => page.currentPage === 1 || posts.length > 0);
+if (other.posts.length) topicsToShow.push(other);
+const emptyLabel = page.lastPage > 1 ? "本页暂无文章" : "暂无文章";
 ---
 
 <MainGridLayout title={title} referencePage="article-list">
@@ -46,10 +62,21 @@ const articles = page.data.filter(({ data }) => !data.pinned);
 				<span class="article-list-regular__count">共 <strong>{page.total}</strong> 篇文章</span>
 				{pinned.length === 0 && page.total > 0 && <div class="article-list-pinned__switch"><AnimatedTabs client:load activeTab={siteConfig.postListLayout.defaultMode || "list"} /></div>}
 			</header>
-			<div class="article-list-vertical">
-				{articles.map((entry) => <ReferenceArticleRow {entry} />)}
-				{page.total === 0 && <p class="py-5 text-(--content-meta)">暂无文章</p>}
-			</div>
+			{topicsToShow.map(({ id, label, posts }) => (
+				<section class="article-list-topic" aria-labelledby={id}>
+					<header class="article-list-topic__heading">
+						<h3 id={id}>{label}</h3>
+						{posts.length > 0 && <span class="article-list-regular__count">{posts.length} 篇</span>}
+					</header>
+					{posts.length > 0 ? (
+						<div class="article-list-vertical">
+							{posts.map((entry) => <ReferenceArticleRow {entry} headingTag="h4" />)}
+						</div>
+					) : (
+						<p class="article-list-topic__empty">{emptyLabel}</p>
+					)}
+				</section>
+			))}
 		</section>
 	</article-list-view>
 	{page.lastPage > 1 && (
@@ -60,6 +87,35 @@ const articles = page.data.filter(({ data }) => !data.pinned);
 		/>
 	)}
 </MainGridLayout>
+
+<style>
+	.article-list-topic {
+		padding-block: 1rem;
+	}
+
+	.article-list-topic + .article-list-topic {
+		border-block-start: 1px solid var(--line-divider);
+	}
+
+	.article-list-topic__heading {
+		display: flex;
+		align-items: baseline;
+		gap: 0.75rem;
+		margin-block-end: 0.5rem;
+	}
+
+	.article-list-topic__heading h3 {
+		color: var(--deep-text);
+		font-size: 1.125rem;
+		font-weight: 800;
+		scroll-margin-top: 5rem;
+	}
+
+	.article-list-topic__empty {
+		color: var(--content-meta);
+		font-size: 0.875rem;
+	}
+</style>
 
 <script>
 	class ArticleListView extends HTMLElement {

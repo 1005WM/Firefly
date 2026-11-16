@@ -10,9 +10,10 @@ import { getCategoryUrl, getFileDirFromPath, getPostUrlBySlug, getTagUrl } from 
 
 interface Props {
 	entry: CollectionEntry<"posts">;
+	headingTag?: "h3" | "h4";
 }
 
-const { entry } = Astro.props;
+const { entry, headingTag: Heading = "h3" } = Astro.props;
 const { data } = entry;
 const { remarkPluginFrontmatter } = await render(entry);
 const date = formatDateToYYYYMMDD(data.published).replaceAll("-", "/");
@@ -29,9 +30,9 @@ const wordCount = count.toLocaleString(siteConfig.lang.replaceAll("_", "-"));
 
 <article class:list={["article-list-row-pinned", !data.image && "reference-article-no-cover"]} style={`--reference-category-color: ${palette[colorIndex]}`}>
 	<div class="article-list-pinned-item__content">
-		<h3 class="article-list-pinned-item__title">
+		<Heading class="article-list-pinned-item__title">
 			<span class="article-list-pinned-item__title-text">{heading}</span>
-		</h3>
+		</Heading>
 		<div class="article-list-pinned-item__meta">
 			<a class="article-list-pinned-item__taxonomy article-list-pinned-item__taxonomy--category" href={getCategoryUrl(data.category ?? null)}>{category}</a>
 			<span class="article-list-pinned-item__meta-item"><Icon name="material-symbols:calendar-today-outline-rounded" aria-hidden="true" /><time datetime={data.published.toISOString()}>{date}</time></span>

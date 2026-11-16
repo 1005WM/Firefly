@@ -3,7 +3,7 @@ title: QCT-Nva代码知识
 published: 2026-11-14
 pinned: false
 description: 青橙战队 ROS 2 哨兵导航工作区（QCT-Nva）的零基础逐行讲解：从 Livox MID360 驱动、FAST-LIO、地形分析与 OctoMap，到 ICP 重定位、Nav2 代价地图插件、行为树与底盘速度链，附常用函数与常用包的反查索引。
-image: ''
+image: './images/qct-nva-cover.avif'
 tags: [ROS 2, 源码阅读, C++, 机器人, Nav2, SLAM]
 category: 源码解析
 draft: false
