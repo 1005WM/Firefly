@@ -1,8 +1,9 @@
 ---
 title: QCT-Nva代码知识
 published: 2026-11-14
+updated: 2026-11-22
 pinned: false
-description: 青橙战队 ROS 2 哨兵导航工作区（QCT-Nva）的零基础逐行讲解：从 Livox MID360 驱动、FAST-LIO、地形分析与 OctoMap，到 ICP 重定位、Nav2 代价地图插件、行为树与底盘速度链，附常用函数与常用包的反查索引。
+description: 青橙战队 ROS 2 哨兵导航工作区（QCT-Nva）的零基础逐行讲解：从 Livox MID360 驱动、FAST-LIO、地形分析与 OctoMap，到 ICP 重定位、Nav2 代价地图插件、QCT 决策行为树与 Groot 2 监看、底盘速度链，附常用函数与常用包的反查索引。
 image: './images/qct-nva-cover.avif'
 tags: [ROS 2, 源码阅读, C++, 机器人, Nav2, SLAM]
 category: 源码解析
@@ -15,12 +16,12 @@ slug: qct-nva-dai-ma-zhi-shi
 > [!NOTE] 这篇在讲什么
 > 讲的是 `QCT-Nva` —— 青橙战队的 ROS 2 哨兵机器人导航工作区。不假设你学过 ROS 2、点云或 SLAM：每个概念第一次出现就解释，每段代码都带真实行号和白话拆解，并按「数据在谁手里、下一步交给谁」把各个环节串成一条完整链路。
 
-这是一份针对青橙战队哨兵机器人导航工作区的超详细源码讲解。不假设你学过 ROS 2、点云或 SLAM：每个概念第一次出现就解释，每段代码都带行号和白话逐行拆解，并按「数据在谁手里、下一步交给谁」把 14 个包串成一条完整链路；后半部分另附常用函数、常用包与按场景反查索引。
+这是一份针对青橙战队哨兵机器人导航工作区的超详细源码讲解。不假设你学过 ROS 2、点云或 SLAM：每个概念第一次出现就解释，每段代码都带行号和白话逐行拆解，并按「数据在谁手里、下一步交给谁」把 15 个包串成一条完整链路；后半部分另附常用函数、常用包与按场景反查索引。
 
 - **源码位置**：`D:/WORKclaude/QCT-Nva`
 - **运行环境**：ROS 2 Humble / Ubuntu 22.04 / Livox MID360
-- **规模**：12 个顶层目录、14 个 ROS 2 包、约 600 个文件
-- **读法**：按「数据流向」而非文件夹顺序——雷达 → 定位建图 → 地形 → 重定位 → 导航 → 底盘
+- **规模**：12 个顶层目录、15 个 ROS 2 包、约 340 个源码文件
+- **读法**：按「数据流向」而非文件夹顺序——雷达 → 定位建图 → 地形 → 重定位 → 导航 → 底盘；最后单独看站在 Nav2 之上的**决策层**（第 17 章），它决定「去哪」，其余章节决定「怎么去」
 
 > [!TIP] 关于行号
 > 文中代码片段全部摘自仓库原文，标注的是「起始行–结束行」区间；「逐行拆解」左侧的数字就是源码里的真实行号，可以直接按号在编辑器里定位。如果你手上是别的版本，行号可能有少量偏移，以函数名和代码内容为准。
@@ -29,9 +30,9 @@ slug: qct-nva-dai-ma-zhi-shi
 
 | 章 | 讲什么 |
 | --- | --- |
-| 00 · 读前说明：这份讲解打算怎么讲 | 先交代项目背景、讲解范围和阅读方法，避免一上来就掉进 600 个文件里。 |
+| 00 · 读前说明：这份讲解打算怎么讲 | 先交代项目背景、讲解范围和阅读方法，避免一上来就掉进 340 个文件里。 |
 | 01 · 零基础概念速查（这一章最重要） | 把后面会反复出现的 30 多个词一次讲清楚。看不懂代码，八成是卡在这里。 |
-| 02 · 全局鸟瞰：14 个包与一条数据流 | 先记住这张地图，后面每一章都是在往这张图上贴细节。 |
+| 02 · 全局鸟瞰：15 个包与一条数据流 | 先记住这张地图，后面每一章都是在往这张图上贴细节。 |
 | 03 · 先读两份文档：README 与源码导读 | 仓库自带的两份文档质量很高，先把它们逐段拆开，等于拿到了整份代码的索引。 |
 | 04 · 第一环：Livox MID360 雷达驱动 | 所有数据的源头。理解它，才能理解后面 FAST-LIO 为什么那样配置。 |
 | 05 · launch 文件入门：逐行拆 mapping.launch.py | 学会读 launch，就学会了这个工程 80% 的「接线图」。 |
@@ -46,23 +47,24 @@ slug: qct-nva-dai-ma-zhi-shi
 | 14 · 行为树与自定义恢复行为 BackUpTwzFree | 卡住时机器人不是傻傻直退，而是查代价地图找一块空地，斜着平移过去。 |
 | 15 · 速度指令的最后一公里：底盘与消息接口 | 从 Nav2 的抽象速度，到电控能理解的 ChassisCmd，中间只隔两个 60 行的小节点。 |
 | 16 · 构建体系、坐标系模型与调试面板 | 看懂 CMakeLists / package.xml / URDF，才知道「改了文件为什么没生效」。 |
-| 17 · 实战速查：命令、验收点与排障清单 | 把前面所有概念落到「终端里敲什么」。首次使用务必分阶段，每段都有可观测的验收点。 |
-| 18 · 全量陷阱清单与联调优先级 | 把散落在各章的「不一致 / 未闭环 / 易错点」集中起来，交作业或实车前过一遍。 |
-| 19 · 常用包全景：14 个包各自干什么、谁依赖谁 | 前面按数据流讲完了代码，这一章换成「按包查」：想改某个功能，先知道该进哪个目录。 |
-| 20 · C++ 常用函数逐行拆解：节点骨架与消息收发 | 把散落在各章的 rclcpp / QoS / tf2 调用抽出来，集中讲「这个函数到底在干什么」。 |
-| 21 · launch 与 Python 常用函数逐行拆解 | 不改一行 C++，只靠 launch 就能换话题名、换参数、改启动顺序。这一章讲清每个函数。 |
-| 22 · 算法与数学库函数逐行：PCL / Eigen / ikd-Tree / ICP / IEKF | 前面讲的是「搬运数据的函数」，这一章讲「真正算东西的函数」。 |
-| 23 · 函数与包速查索引：想改 X，该去哪、调什么 | 把前面 22 章压成一张反查表。实车联调、交作业、面试讲解时直接翻这一章。 |
+| 17 · QCT 决策包：给 Nav2 下目标的大脑（逐行精读） | 源码重构后新增的一层：读裁判状态、跑决策行为树、选巡逻 / 补给 / 区域目标，再用 Action 命令 Nav2，含 Groot 2 监看。 |
+| 18 · 实战速查：命令、验收点与排障清单 | 把前面所有概念落到「终端里敲什么」。首次使用务必分阶段，每段都有可观测的验收点。 |
+| 19 · 全量陷阱清单与联调优先级 | 把散落在各章的「不一致 / 未闭环 / 易错点」集中起来，交作业或实车前过一遍。 |
+| 20 · 常用包全景：15 个包各自干什么、谁依赖谁 | 前面按数据流讲完了代码，这一章换成「按包查」：想改某个功能，先知道该进哪个目录。 |
+| 21 · C++ 常用函数逐行拆解：节点骨架与消息收发 | 把散落在各章的 rclcpp / QoS / tf2 调用抽出来，集中讲「这个函数到底在干什么」。 |
+| 22 · launch 与 Python 常用函数逐行拆解 | 不改一行 C++，只靠 launch 就能换话题名、换参数、改启动顺序。这一章讲清每个函数。 |
+| 23 · 算法与数学库函数逐行：PCL / Eigen / ikd-Tree / ICP / IEKF | 前面讲的是「搬运数据的函数」，这一章讲「真正算东西的函数」。 |
+| 24 · 函数与包速查索引：想改 X，该去哪、调什么 | 把前面 23 章压成一张反查表。实车联调、交作业、面试讲解时直接翻这一章。 |
 
 ---
 
 ## 00 · 读前说明：这份讲解打算怎么讲
 
-*先交代项目背景、讲解范围和阅读方法，避免一上来就掉进 600 个文件里。*
+*先交代项目背景、讲解范围和阅读方法，避免一上来就掉进 340 个文件里。*
 
 `QCT-Nva` 是青橙战队**哨兵机器人**的 ROS 2 导航工作区。一句话概括它做的事：**把激光雷达和 IMU 的原始数据，变成「我在哪」「周围哪里能走」「轮子该转多快」这三件事。**它基于 SCURM 火锅战队开源的哨兵导航框架整理，运行在 Ubuntu 22.04 + ROS 2 Humble 上，传感器是 Livox MID360。
 
-目录下有 632 个文件、14 个 ROS 2 包。别被数字吓到：其中 `Livox-SDK2`（239 个文件）、`livox_ros_driver2`（114 个）、`FAST_LIO`（66 个）里绝大部分是第三方/上游代码，**真正需要读懂的接线和自研逻辑，集中在另外 8 个包、大约 30 个文件**。这份讲解就是围绕这 30 个文件展开的。
+目录下有 341 个源码文件、15 个 ROS 2 包。别被数字吓到：其中 `Livox-SDK2`（239 个文件）、`livox_ros_driver2`（114 个）、`FAST_LIO`（66 个）里绝大部分是第三方/上游代码，**真正需要读懂的接线和自研逻辑，集中在另外 8 个包、大约 30 个文件**。这份讲解就是围绕这 30 个文件展开的。
 
 > [!NOTE] 零基础承诺
 > 讲解不假设你学过 ROS 2、Linux、C++、点云或 SLAM。凡是第一次出现的概念（节点、话题、TF、QoS、launch、remap、pluginlib、ICP、体素栅格……）都会当场用大白话解释一遍。代码片段全部来自仓库原文，保留行号，下面配「逐行拆解」；点行号可以跳到对应代码行。
@@ -229,7 +231,7 @@ ros2 topic echo /localization_initial_pose geometry_msgs/msg/PoseWithCovarianceS
 
 ---
 
-## 02 · 全局鸟瞰：14 个包与一条数据流
+## 02 · 全局鸟瞰：15 个包与一条数据流
 
 *先记住这张地图，后面每一章都是在往这张图上贴细节。*
 
@@ -243,14 +245,15 @@ ros2 topic echo /localization_initial_pose geometry_msgs/msg/PoseWithCovarianceS
 | `icp_relocalization` | 10 | 把当前扫描和先验 PCD 对齐，给出初始位姿并广播 `map→odom` | 自研 |
 | `autonomous_exploration_development_environment` | 30 | 地形分析（普通版 / 扩展版）、字段交换、扫描坐标变换、坡度分析 | 上游 + 本工程接线 |
 | `nav2_plugins` | 13 | 两个自定义包：`costmap_intensity`（按 intensity 过滤的障碍层）和 `behavior_ext_plugins`（朝自由空间后退） | **自研核心** |
+| `qct_behavior` | 12 | **上层决策**：读裁判状态与区域标志，跑决策行为树，通过 Nav2 Action 下发巡逻 / 回补给 / 区域目标 | **自研核心**（第 17 章精读） |
 | `cmd_chassis` | 7 | 速度坐标转换、`/cmd_vel` → `/chassis_cmd` | 自研 |
 | `rm_interfaces` | 21 | 底盘/云台/裁判系统的 `.msg` 消息定义 | 自研（接口包） |
 | `auto_aim_interfaces` | 10 | 自瞄系统消息定义 | 自研（接口包） |
 | `sentry_bringup` | 39 | **总装车间**：所有 launch 文件、参数 YAML、行为树、地图、RViz 配置 | 自研（最重要） |
 | `sentry_description` | 12 | 机器人 URDF 模型，发布静态 TF 树 | 自研 |
-| `control_panel` | 8 | Qt 调试面板，模拟裁判系统发比赛状态 | 自研（可选） |
+| `control_panel` | 8 | **无界面**模拟裁判 `referee_sim.py`：按场景发 `GameState` 和 `in_zone`（Qt 面板已被删除） | 自研（可选） |
 
-共 12 个顶层目录（README 里按 14 个包计，因为部分目录含多个 ROS 包）。真正要精读的是加粗和标「自研」的部分。
+共 12 个顶层目录（README 里按 15 个包计，因为部分目录含多个 ROS 包）。真正要精读的是加粗和标「自研」的部分。注意 `qct_behavior` 是**给 Nav2 下目标的上层大脑**，不在「雷达→底盘」这条数据主链上，而是站在 Nav2 的肩膀上决定「现在去哪」。
 
 ### 2.2 主数据流：从雷达到底盘
 
@@ -289,6 +292,13 @@ FAST_LIO (locate_in_prior_map=true, 加载 GlobalMap.pcd, 不再增量建图)
             → velocity_smoother → /cmd_vel
             → twist_transformer → /cmd_vel_in_yaw
             → twist2chassis_cmd → /chassis_cmd
+
+【上层决策（独立节点，站在 Nav2 之上）】
+control_panel/referee_sim ──> /game_state_sim (GameState) + /in_zone (Bool)
+            ↓
+qct_behavior/decision_node ──决策树 sentry.xml──> 选任务
+            ↓ NavigateToPose / NavigateThroughPoses Action
+Nav2 ──> 上面【重定位+导航】那条链（决策包只下目标，不碰速度）
 ```
 
 **逐行拆解**
@@ -304,15 +314,17 @@ FAST_LIO (locate_in_prior_map=true, 加载 GlobalMap.pcd, 不再增量建图)
 
 把这张图记牢：**同一个 `/cloud_registered`，在建图时喂给 OctoMap 生成 2D 地图；在导航时喂给地形分析生成实时障碍。**同一个 `GlobalMap.pcd`，既给 ICP 做匹配目标，也给 FAST-LIO 定位模式做先验索引。
 
-### 2.3 三条启动路径
+### 2.3 五条启动路径
 
 | 入口 launch | 启动什么 | 什么时候用 |
 | --- | --- | --- |
 | `mapping.launch.py` | MID360 + 机器人模型 + 底盘桥 + RViz，**延时 8 秒**起 FAST-LIO 和 OctoMap 建图链路 | 第一次到新场地，采集环境生成 PCD 和 PNG |
 | `relocalization.launch.py` | 模型 + 传感器 + ICP + 中继 + FAST-LIO（先验地图模式）+ RViz | 已有地图，先确认能定位成功 |
-| `bringup_all_in_one.launch.py` | 在重定位之后挂一个门控脚本；定位就绪才启动 `navigation.launch.py`，超时 90 秒直接关闭启动 | 全部确认过之后的日常一键启动 |
+| `navigation.launch.py` | 单独拉起 Nav2 全套 + 地形分析 + RViz（重定位后使用） | 已定位，只想验证规划与控制 |
+| `bringup_all_in_one.launch.py` | 在重定位之后挂一个门控脚本；定位就绪才启动 `navigation.launch.py`，超时直接关闭启动 | 全部确认过之后的日常一键启动 |
+| `qct_behavior.launch.py` | 决策节点 `tree_1`，可选同时拉起无界面模拟裁判 | 定位与 Nav2 就绪后，验证「去哪」的上层决策 |
 
-另有实验入口 `bringup_without_relocalization.py`，用固定 `TimerAction(10.0)` 延时启动导航，不做定位检查。首次联调不要用。
+另有实验入口 `bringup_without_relocalization.py`，用固定 `TimerAction(10.0)` 延时启动导航，不做定位检查。首次联调不要用。决策包是**独立启动**的，不属于上面任何一条导航入口——这正是为什么它容易被漏读。
 
 > [!TIP] 为什么一定要分阶段
 > 每一阶段都有可观测的验收点：话题有没有数据（`ros2 topic hz`）、TF 能不能查（`tf2_echo`）、RViz 里位置对不对。直接一键启动，出错时你无法知道是雷达没数据、ICP 没收敛、还是 Nav2 没激活。
@@ -365,28 +377,25 @@ map                       ← 全局固定坐标系（世界的原点）
 
 ### 3.1 README.md：项目自述
 
-**`README.md（节选）`** · 源码第 **1–10** 行
+**`README.md（节选）`** · 源码第 **1–7** 行
 
 ```text
-1  # 青橙战队的哨兵导航代码
+1  # QCT-Nva
 2
-3  本项目是青橙战队哨兵机器人的 ROS 2 导航代码，涵盖激光雷达数据接入、
-4  建图与重定位、地形分析、路径规划和底盘指令转换。代码基于 SCURM 火锅战队
-5  开源的哨兵导航框架整理，保留各模块原有的版权声明与许可证。
-...
-7  ## 系统组成
-9  导航系统通过 Livox 雷达采集环境数据，使用 FAST-LIO 进行建图与定位，
-10 结合 ICP 完成重定位。地形分析结果用于构建导航代价地图，Nav2 负责路径规划、
-11 运动控制和故障恢复，底盘控制模块完成速度指令转换。
+3  QCT-Nva 是青橙战队的 ROS 2 哨兵导航工作区。项目接入 Livox MID360 点云和 IMU，
+4  使用 FAST-LIO 建图，利用 ICP 在先验地图中初始化定位，再由 Nav2 规划路径和
+5  输出速度。QCT 决策行为树可按场地配置执行巡逻、区域切换和回补给点。
+6
+7  ## 构建
 ```
 
 **逐行拆解**
 
-- **1** — 标题直接说明这是**哨兵机器人**（RoboMaster 比赛里自动巡逻的机器人）的导航代码。
-- **3–5** — 一句话列出五大模块：雷达接入、建图/重定位、地形分析、路径规划、底盘指令。这正是第 02 章数据流图的文字版。同时说明代码来自上游开源并保留版权。
-- **9–11** — 点名关键技术栈：Livox 雷达 → FAST-LIO（建图定位）→ ICP（重定位）→ 地形分析（代价地图）→ Nav2（规划/控制/恢复）→ 底盘转换。后面 06–15 章逐个拆。
+- **1** — 标题就是工作区名 `QCT-Nva`。（源码重构前这里写的是「青橙战队的哨兵导航代码」，说明这份 README 是被重写过的。）
+- **3–5** — 一句话串起整条链路：MID360 点云 + IMU → FAST-LIO 建图 → ICP 初始化定位 → Nav2 规划与速度。**最后一句特别关键**：「QCT 决策行为树可按场地配置执行巡逻、区域切换和回补给点」——这就是第 17 章讲的决策包。这说明决策层是项目的一等功能，不是附属品，读代码时不能跳过。
+- **7 起** — 构建、五个启动入口、15 个包的职责表、验证范围。包表是第 20 章的权威来源。
 
-README 后面还给了一张包目录表和「编译 / 启动 / 配置说明」三段命令。先看命令有个印象即可，**具体怎么用会在第 17 章展开**，因为那需要前面所有概念才读得懂。
+README 后面还给了「启动入口表」和「编译 / 联调命令」。先看命令有个印象即可，**具体怎么用会在第 18 章展开**，因为那需要前面所有概念才读得懂。
 
 ### 3.2 docs/CODEBASE_GUIDE.md：三条启动路径与「从输入追到输出」
 
@@ -417,6 +426,9 @@ README 后面还给了一张包目录表和「编译 / 启动 / 配置说明」�
 - **20–23** — **建图定位**：确认 `/Odometry` 被 remap 成 `/state_estimation`；ICP 结果经过中继变成 `map → odom` 和一次性初始位姿。
 - **24–26** — **地形**：一句话点破本工程最核心的技巧——`intensity` 字段被用来装「点相对地面有多高」，自定义插件再按它过滤。第 07、13 章会逐行拆。
 - **27–30** — **规划控制**：速度链 4 跳。最后一句非常重要：**仓库里没有把 `/chassis_cmd` 下发到电控的节点**。也就是说导航算出了速度，但「最后一公里」的串口/ CAN 驱动不在这个工作区里。
+
+> [!TIP] 这份导读重构后多了一整节
+> 上面的「从输入追到输出」仍只讲雷达→底盘这条线。但当前 `CODEBASE_GUIDE.md` 开头**新增了「行为树模块怎么读」一段和一张 7 行的决策模块表**（程序入口 / 节点声明 / 初始化 / 决策条件 / 导航执行 / 策略顺序 / 启动配置），并强调「决策只选任务、成功不表示到达」。这正是第 17 章要逐行展开的内容——老版本读者最容易漏掉的就是这一层。
 
 > [!WARNING] 一个必须知道的边界
 > 第 30 行直说：源码里只能追到 ROS 消息的发布，找不到消费 `/chassis_cmd` 并真正驱动电机/电控的节点。所以这套代码**不是开箱即走的完整机器人**，实车联调时需要自己补上底盘通信桥。README_USAGE.md 也提醒「在执行器断开条件下验证路径和速度」，否则控制器会一直报「进度不足」。
@@ -4591,70 +4603,364 @@ geometry_msgs/Twist twist
 > [!WARNING] 别把外参平移抄两遍
 > URDF 的 `lidar_link → imu_link` 是 `[0.011, 0.02329, -0.04412]`，FAST-LIO YAML 的 `extrinsic_T` 是 `[-0.011, -0.02329, 0.04412]`——**同一段平移的反方向**。README_USAGE.md 专门提醒不要照抄两遍。
 
-### 16.7 control_panel：可选的 Qt 调试面板
+### 16.7 control_panel：无界面模拟裁判
 
-**`src/control_panel/control_panel/publisher.py（全文 45 行节选）`** · 源码第 **1–35** 行
+> [!WARNING] 这一节在源码重构后已经变天
+> 老版本的 `control_panel` 是一个 Qt 窗口（`gui.py` + `publisher.py`），现在这两个文件**已被删除**，只剩一个无界面节点 `referee_sim.py`。它按预设场景周期发布 `GameState` 和 `in_zone`，专为决策包联调服务。逐行讲解移到第 17 章，这里只留个索引：`src/control_panel/control_panel/referee_sim.py`（100 行）。默认总入口仍然不启动它，需要用 `qct_behavior.launch.py` 的 `simulate_referee:=true` 显式拉起。
 
-```py
- 1 import rclpy
- 2 from rclpy.node import Node
- 3 from rm_interfaces.msg import GameState
- 4 from auto_aim_interfaces.msg import Target
- 5 from std_msgs.msg import String,Bool,Int16,Int8
- 6 from geometry_msgs.msg import PoseStamped
- 7 import time
- 8
- 9
-10 class Panel_Publisher(Node):
-11
-12     def __init__(self,node_name='control_panel_pub'):
-13         super().__init__(node_name)
-14         self.game_state_publisher_=self.create_publisher(GameState,'game_state_sim',10)
-15         self.timer_=self.create_timer(1,self.timer_callback)
-16
-17
-18         self.game_state=GameState()
-19         self.game_state.game_progress=0
-20         self.game_state.stage_remain_time=32767
-21         self.game_state.current_hp=700
-22         self.game_state.projectile_allowance_17mm=400
-23         self.game_state.my_outpost_hp=1000
-24         self.game_state.enemy_outpost_hp=1000
-25         self.game_state.my_base_hp=1000
-26         self.game_state.enemy_base_hp=1000
-27
-28     def set_game_state(self,game_progress,stage_remain_time,current_hp,projectile_allowance_17mm,my_outpost_hp,enemy_outpost_hp,my_base_hp,enemy_base_hp):
-29         self.game_state.game_progress=game_progress
+---
+
+## 17 · QCT 决策包：给 Nav2 下目标的大脑（逐行精读）
+
+*这一章讲的东西不在「雷达→底盘」那条数据主链上。它站在 Nav2 的肩膀上，决定机器人「现在该去哪」——也是源码重构后新增、最容易漏读的一层。*
+
+### 17.1 它在整张图里的位置
+
+回到第 02 章的数据流：Nav2 的 `navigate_to_pose` Action 收到一个目标，才会规划路径、跟踪速度、最终吐出 `/chassis_cmd`。但**谁来给这个目标**？第 02 章之前的所有章节都没回答——答案就是 `qct_behavior`。
+
+- **输入**：`GameState`（比赛阶段 + 血量）、`in_zone`（区域标志）、里程计与 TF。
+- **输出**：Nav2 Action 目标（`NavigateToPose` 单点 / `NavigateThroughPoses` 整条路线）。
+- **它不碰**：点云、FAST-LIO、代价地图、速度链——那些是 Nav2 和前面 15 章的事。
+
+一句话记牢：**决策包只回答「去哪」，Nav2 负责「怎么去」。** 它独立启动，不属于 `mapping` / `relocalization` / `navigation` / `bringup_all_in_one` 任何一条入口，所以只读启动脚本的人很容易完全错过它。包名 `qct_behavior`，可执行文件名却叫 `tree_1`（历史遗留，launch 里写的是 `tree_1`，不是 `qct_behavior`）。
+
+### 17.2 从单文件到 5 个模块：重构发生了什么
+
+源码 11-21 的提交把原来一个 370 行的 `qct_behavior.cpp` 拆成了按职责分工的多个文件。`CMakeLists.txt:17` 的注释写明「继续生成原来的 `tree_1`，launch 和 ros2 run 不用改」——所以**外部接口没变，内部大改**。
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `src/qct_behavior.cpp` | 49 | 程序入口、信号处理、退出时取消目标 |
+| `src/decision_node.hpp` | 118 | 类声明：接口、共享状态、两个任务变量 |
+| `src/decision_node.cpp` | 120 | 构造：参数校验、订阅、定时器、坐标生成 |
+| `src/behavior_tree.cpp` | 85 | 注册 XML 节点、判定条件、接入 Groot 2 |
+| `src/navigation.cpp` | 149 | 发目标、取消、重试、巡逻换点、退出收尾 |
+| `behavior_tree/sentry.xml` | 28 | 决策树：优先级写在这里 |
+| `config/sentry.yaml` | 31 | 场地参数模板（补给点、巡逻点、阈值） |
+| `launch/qct_behavior.launch.py` | 57 | 启动决策 + 可选模拟裁判 |
+| `test/test_groot_monitoring.py` | 115 | Groot 监看的集成检查 |
+
+> [!TIP] 版权来源
+> `decision_node.cpp:1` 注明这套导航决策策略改编自 COD RM2026 Behavior Tree（Apache-2.0）。文章里引用这段代码时，记得保留上游出处。
+
+### 17.3 decision_node.hpp：状态与「双任务」模型
+
+**`src/decision_node.hpp（节选）`** · 源码第 **27–117** 行
+
+```cpp
+36 // 等待、回补给点、去区域目标、按路线巡逻；优先级由 sentry.xml 的排列决定。
+37 enum class Task {Idle, Home, Zone, Patrol};
 ...
-37     def timer_callback(self):
-38         if(self.game_state.stage_remain_time>0):
-39             self.game_state.stage_remain_time=self.game_state.stage_remain_time-1
-40         else:
-41             self.game_state.game_progress=5
+68 // ROS 通信对象与行为树；tf_ 必须先于监听器构造。
+69 tf2_ros::Buffer tf_;
+70 tf2_ros::TransformListener tf_listener_;
+71 BT::Tree tree_;
+72 // 发布器订阅树节点的状态变化，必须比 tree_ 先析构，所以声明在它后面。
+73 std::unique_ptr<BT::Groot2Publisher> groot_publisher_;
+...
+108 // requested 是树本轮想做的事，active 是导航正在处理的事；取消期间两者可以不同。
+109 Task requested_task_ = Task::Idle;
+110 Task active_task_ = Task::Idle;
+111 bool at_goal_ = false;
+112 bool goal_pending_ = false;
+113 std::optional<ResultCode> result_;
+114 std::function<void()> cancel_goal_;
 ```
 
 **逐行拆解**
 
-- **3** — 使用 `rm_interfaces/msg/GameState`（不是被注释掉的 `GameStatus`）。
-- **4–7** — `Target`、若干 std_msgs、`PoseStamped`、`time` 都导入了但**没用到**，说明原本计划发更多话题。
-- **14** — **唯一发布的话题**：`game_state_sim`，类型 `GameState`，队列 10。
-- **15** — 1 Hz 定时器驱动倒计时。
-- **18–26** — 构造开局状态：未开始、剩余 32767 秒、HP 700、弹量 400、双方前哨站/基地 1000。
-- **28–35** — 界面按钮回调会调它，把 8 个字段覆盖成人工输入值。
-- **37–41** — 每秒把 `stage_remain_time` 减 1，减到 0 就把 `game_progress` 置 5（`GAME_STOP`）。
+- **37** — 全工程只有 4 种任务。`Idle` 是「别动」，`Home` 回补给点，`Zone` 去区域目标，`Patrol` 巡逻。优先级**不在 C++ 里**，而在 `sentry.xml` 的排列顺序里（见 17.5）。
+- **69–73** — 成员声明顺序是刻意安排的：`tf_` 必须早于 `tf_listener_` 构造；`groot_publisher_` 必须晚于 `tree_` 构造、早于 `tree_` 析构，否则它会订阅一棵已经销毁的树。这是 C++ 里「构造顺序 = 声明顺序、析构顺序相反」的真实应用。
+- **109、110** — **全章最关键的两个变量**。`requested_task_` 是决策树本轮选出来的「我想做什么」，`active_task_` 是导航执行层「正在做什么」。之所以要分开：切任务时不能立刻发新目标，得等旧目标取消并结束——这期间两者故意不一致。
+- **111–114** — `goal_pending_` 表示有一个目标在路上，`result_` 存它的最终结果，`cancel_goal_` 是一个可调用的取消函数（由 `send_goal` 填进去）。
 
-`gui.py` 是一个 Qt 窗口，8 个输入框对应 `GameState` 的业务字段，一个「set game status」按钮。它的 `loop()` 在子线程里 `rclpy.spin_once` 并**高频持续发布**当前状态（约每 10 ms 一次），按钮只是修改对象字段——这更接近真实裁判系统周期性下发的行为。Qt 的 `app.exec_()` 占主线程，ROS 轮询放子线程，是 Python GUI + ROS 的常见套路。
+### 17.4 decision_node.cpp：参数校验、订阅与去抖
 
-> [!TIP] 默认总入口不启动它
-> `docs/CODEBASE_GUIDE.md` 说明当前 `control_panel` 只发布模拟比赛状态，**不启动导航或比赛决策**，默认总入口没有启用它。它是可选调试工具，需要图形环境和 `python_qt_binding`。启动命令来自 `setup.py` 的 `console_scripts`：`ros2 run control_panel control_panel`。
+**`src/decision_node.cpp（构造，节选）`** · 源码第 **13–104** 行
 
----
+```cpp
+13 DecisionNode::DecisionNode()
+14 : Node("qct_behavior"), tf_(get_clock()), tf_listener_(tf_, this, false)
+15 {
+16   // 参数不合法就拒绝启动，避免拿错误坐标或阈值指挥机器人。
+17   const auto game_topic = declare_parameter<std::string>("game_state_topic", "game_state_sim");
+...
+25   if (mode != "waypoints" && mode != "through_poses")
+27     throw std::invalid_argument("patrol_mode must be waypoints or through_poses");
+...
+32   if (!std::isfinite(state_timeout) || state_timeout <= 0 || !std::isfinite(pause) || pause < 0 ||
+33     low_hp_ < 0 || low_hp_ >= resume_hp_ || resume_hp_ > 65535)
+35     throw std::invalid_argument("Check HP thresholds, game_state_timeout_sec and waypoint_pause_sec");
+...
+45   if (home.size() != 3 || route.empty() || route.size() % 3 != 0)
+47     throw std::invalid_argument("Set home_pose and patrol_poses to x, y, yaw triples in the QCT map");
+49   // 区域开关和区域目标必须成对配置，否则可能选中一个不存在的目标。
+50   if (zone_topic.empty() != zone.empty() || (!zone.empty() && zone.size() != 3))
+52     throw std::invalid_argument("Set both zone_topic and a single zone_pose, or omit both");
+...
+69   // 低于 low_hp 才回补给，回到 resume_hp 才恢复，避免血量在临界值附近反复切任务。
+70   game_sub_ = create_subscription<rm_interfaces::msg::GameState>(
+71     game_topic, rclcpp::QoS(10).best_effort(),
+72     [this](const rm_interfaces::msg::GameState & msg) {
+73       last_game_ = Clock::now();
+74       game_running_ = msg.game_progress == kGameRunning;
+75       needs_recharge_ = game_running_ &&
+76         (needs_recharge_ ? msg.current_hp < resume_hp_ : msg.current_hp < low_hp_);
+77     });
+```
 
-## 17 · 实战速查：命令、验收点与排障清单
+**逐行拆解**
+
+- **17–38** — 先声明所有参数再校验。**参数不合法直接抛异常拒绝启动**，这是有意为之：拿错误的补给点坐标或血量阈值去指挥机器人，比不启动更危险。`low_hp`（默认 210）必须小于 `resume_hp`（默认 350），`patrol_mode` 只能是 `waypoints` 或 `through_poses`。
+- **45–52** — `home_pose` 必须是 `[x, y, yaw]` 三元组，`patrol_poses` 必须非空且长度是 3 的倍数。区域话题和区域坐标**必须成对配置**——只给一个会导致选中一个不存在的目标。
+- **75、76** — **滞回（hysteresis）逻辑**：已经在补给状态时用 `resume_hp`（350）判断何时退出，否则用 `low_hp`（210）判断何时进入。这样血量在 210 附近抖动时不会让任务来回翻转。这是控制工程里的经典手法。
+- **78–86** — 里程计回调用 `SensorDataQoS()`（雷达数据是 best-effort），并且**按消息时间戳去重**：`stamp != *odom_stamp_` 才算一次定位更新。重复播放同一帧里程计不能给定位「续命」——这是针对 rosbag 回放的防呆。
+- **97–102** — 100 ms 定时器每拍做三件事，顺序固定：先 `poll_nav_state()` 查 Nav2 生命周期状态，再 `tree_.tickExactlyOnce()` 跑一次决策树，最后 `update_navigation()` 推进导航。注意它**不在这里等待到达**——决策和导航是完全异步的。
+- **106–119** — `make_pose()` 把配置的 `yaw`（弧度）转成四元数：只填 `z = sin(yaw/2)`、`w = cos(yaw/2)`，因为场地里机器人只在平面转动。坐标系用 `global_frame_`（默认 `map`）。
+
+### 17.5 behavior_tree.cpp + sentry.xml：只选任务，不阻塞
+
+**`behavior_tree.cpp` 注册节点（第 12–39 行）**
+
+```cpp
+14   BT::BehaviorTreeFactory factory;
+15   factory.registerSimpleCondition("CanNavigate", [this](BT::TreeNode &) {
+16     return condition(can_navigate());
+17   });
+...
+25   // XML 的动作只选择任务并立即成功；真正的发目标、取消和等待由导航模块处理。
+26   const auto register_task = [this, &factory](const char * name, Task task) {
+27     factory.registerSimpleAction(name, [this, task](BT::TreeNode &) {
+28       requested_task_ = task;
+29       return BT::NodeStatus::SUCCESS;
+30     });
+31   };
+32   register_task("SelectIdle", Task::Idle);
+33   register_task("SelectHome", Task::Home);
+34   register_task("SelectZoneGoal", Task::Zone);
+35   register_task("SelectPatrol", Task::Patrol);
+```
+
+**逐行拆解**
+
+- **15–24** — 注册 3 个条件节点：`CanNavigate`、`NeedsRecharge`、`InZone`。`InZone` 额外检查时效：`in_zone_ && fresh(last_zone_, game_timeout_)`，断线超过 2 秒的标志按 false 处理，不会一直沿用旧状态。
+- **26–35** — 4 个动作节点（SelectIdle / SelectHome / SelectZoneGoal / SelectPatrol）**只做一件事：设置 `requested_task_` 然后立刻返回 SUCCESS**。它们不等待导航完成——这是理解整章的钥匙。行为树每 100 ms tick 一次，选出来的任务交给 `navigation.cpp` 异步执行。
+
+**`behavior_tree/sentry.xml（全文 28 行）`**
+
+```xml
+ 5     <Fallback>
+ 6       <Sequence>
+ 8         <CanNavigate/>
+ 9         <Fallback>
+11           <Sequence>
+12             <NeedsRecharge/>
+13             <SelectHome/>
+14           </Sequence>
+16           <Sequence>
+17             <InZone/>
+18             <SelectZoneGoal/>
+19           </Sequence>
+21           <SelectPatrol/>
+22         </Fallback>
+23       </Sequence>
+25       <SelectIdle/>
+26     </Fallback>
+```
+
+**逐行拆解**
+
+- **5** — 最外层是 `Fallback`（回退）：从上往下试，谁先成功就用谁，全失败才走最后一个。
+- **6–8** — 第一个分支是 `Sequence`（序列，要求全部成功）：先过 `CanNavigate` 这一关。不满足就整条分支失败，回退到 `SelectIdle`（第 25 行）——**导航条件不满足时选等待**，执行层会取消尚未结束的旧目标。
+- **9–22** — 内层 `Fallback` 就是**任务优先级**，从上到下：① 低血量（`NeedsRecharge`）→ 回补给点；② 在区域（`InZone`）→ 去区域目标；③ 都不满足 → 巡逻。想改战术优先级，改的是这段 XML 的排列，不是 C++。
+- **72–84（cpp）** — `can_navigate()` 是总闸门，要求**同时**满足：比赛进行中、`GameState` 心跳新鲜、Nav2 处于 ACTIVE、`GetState` 服务响应新鲜（1.5 s）、Action server 就绪、定位在 1 s 内更新过且 `map → chassis_link` 的 TF 能对上里程计时刻。缺一项就选 `Idle`。
+
+### 17.6 navigation.cpp：切任务、取消、重试、换点
+
+**`navigation.cpp（update_navigation，第 67–127 行节选）`**
+
+```cpp
+70   // 切任务先撤销旧目标，收到结束回调后才能发新目标，避免两种导航 Action 同时执行。
+71   if (requested_task_ != active_task_) {
+72     if (goal_pending_) {
+73       if (cancel_goal_ && time >= cancel_after_) {
+74         cancel_goal_();
+75       }
+76       return;   // 旧目标没结束前，绝不发新目标
+77     }
+78     active_task_ = requested_task_;
+79     result_.reset();
+80     at_goal_ = false;
+81     dispatch_after_ = time;
+82   }
+...
+86   // 失败等一秒重试；巡逻成功后换点并停留；补给或区域目标成功后原地等待。
+87   if (result_) {
+88     if (*result_ != ResultCode::SUCCEEDED) {
+89       dispatch_after_ = time + 1s;
+90     } else if (active_task_ == Task::Patrol) {
+92         waypoint_ = (waypoint_ + 1) % patrol_.size();
+94       dispatch_after_ = time + std::chrono::duration_cast<Clock::duration>(waypoint_pause_);
+95     } else {
+96       at_goal_ = true;
+97     }
+98     result_.reset();
+99   }
+```
+
+**逐行拆解**
+
+- **11–44（send_goal 模板）** — 用模板同时支持两种 Action。`goal_response_callback` 在目标被接受时生成 `cancel_goal_` 函数，并且**最多每秒重发一次取消请求**（第 27–28 行），避免取消风暴。`result_callback` 收到最终结果后调 `finish_goal()`。
+- **46–65（poll_nav_state）** — 每 500 ms 查询一次 `bt_navigator/get_state`，超时的请求主动 `remove_pending_request` 清掉。只有 `current_state.id == ACTIVE` 才算 Nav2 就绪。
+- **71–82** — 这是「双任务」模型的落地：`requested_task_` 和 `active_task_` 不同时，如果旧目标还在（`goal_pending_`），就反复调用取消函数并 **return**，直到旧目标的结束回调把 `goal_pending_` 清掉，才把新任务提升为 `active_task_`。**这保证了单点 / 整条路线两种 Action 绝不会同时在跑**。
+- **87–99** — 结果处理三分法：失败 → 1 秒后重试；巡逻成功 → 换下一个航点（逐点模式）并停留 `waypoint_pause_sec`（默认 5 秒）；补给 / 区域目标成功 → `at_goal_ = true` 原地等待，不再重复发目标。
+- **104–126** — 发目标：`through_poses` 模式一次把整条 `patrol_` 列表塞进 `NavigateThroughPoses::Goal`；否则用 `switch` 按任务选单个点（`Home` → `home_`、`Zone` → `zone_`、`Patrol` → `patrol_[waypoint_]`）。每个目标的 `header.stamp` 用 `now()` 打上。
+
+### 17.7 qct_behavior.cpp：入口与「优雅停机」
+
+**`src/qct_behavior.cpp（全文 49 行）`** · 源码第 **1–49** 行
+
+```cpp
+13 void on_signal(int)
+15   // 信号处理只置标志；ROS 调用留给主循环，避免在信号里做复杂操作。
+16   stop_requested = 1;
+...
+22   rclcpp::init(argc, argv, rclcpp::InitOptions{}, rclcpp::SignalHandlerOptions::None);
+23   std::signal(SIGINT, on_signal);
+24   std::signal(SIGTERM, on_signal);
+...
+29   rclcpp::executors::SingleThreadedExecutor executor;
+31   while (rclcpp::ok() && !stop_requested) {
+32     executor.spin_once(100ms);
+33   }
+34   // 保留最多两秒处理旧目标的取消结果，再关闭 ROS 通信。
+35   node->begin_stop();
+36   const auto deadline = Clock::now() + 2s;
+37   while (rclcpp::ok() && Clock::now() < deadline && !node->finish_stop()) {
+38     executor.spin_once(100ms);
+39   }
+```
+
+**逐行拆解**
+
+- **13–16** — 信号处理器**只置一个标志**，不做任何 ROS 调用（在信号上下文里调复杂函数不安全）。这是规范的写法。
+- **22** — `SignalHandlerOptions::None` 关掉 ROS 自己的信号处理，改由上面这个 `on_signal` 接管——这样停机流程可控。
+- **29–30** — 用**单线程执行器**：订阅、定时器和 Action 回调串行执行，所以那些共享状态（`requested_task_` 等）**不需要加锁**。这是拆分模块后仍能安全共享状态的前提。
+- **34–42** — 收到退出信号后不是立刻退出，而是 `begin_stop()`（停定时器、请求 Idle），然后给最多 **2 秒**继续 spin，等 Nav2 确认目标取消。超时只打一条警告，不会卡死。这就是「优雅停机」。
+
+### 17.8 Groot 2 监看：把决策树画出来
+
+`behavior_tree.cpp:41–58` 在树建好后可选地挂一个 `BT::Groot2Publisher`：
+
+```cpp
+41   const auto enable_monitoring = declare_parameter<bool>("enable_groot_monitoring", true);
+42   // Groot 2 会同时占用 server_port 和紧随其后的端口；避开 Nav2 的常用端口。
+43   const auto server_port = declare_parameter<int>("groot_server_port", 2667);
+44   if (server_port < 1 || server_port > 65534) {
+45     throw std::invalid_argument("groot_server_port must be in [1, 65534] (also uses port + 1)");
+...
+47   if (enable_monitoring) {
+48     try {
+50       groot_publisher_ = std::make_unique<BT::Groot2Publisher>(tree_, server_port);
+```
+
+- **默认占用两个端口**：服务端口 `2667` + 发布端口 `2668`。范围校验到 65534，因为还要用 `+1`。多实例必须分配互不重叠的**连续端口对**。
+- **端口冲突不致命**：`catch` 到异常只打警告 `Groot monitoring unavailable`，决策照常按 100 ms 周期运行。监看是「附加能力」，不是决策的前提。
+- **用法**：Humble 先 `sudo apt install ros-humble-behaviortree-cpp`，重新编译后启动决策节点，在 Groot 2 里切到实时监看，地址填运行节点机器的 IP（同机用 `127.0.0.1`），端口填 `2667`。日志出现 `Groot 2 monitoring: server TCP 2667, publisher TCP 2668` 即成功。
+- **看到的是决策树，不是 Nav2 树**：`SelectHome` 等节点返回成功只表示「选好了任务」，不表示机器人已经到达。另外 Groot 2 协议**没有身份认证**，调试还能暂停 / 篡改节点结果——只在可信联调网络里开端口。
+- **自动检查**：`test/test_groot_monitoring.py` 用 4 个用例覆盖「开启时两个端口都在监听」「关闭时不监听」「端口被占用时节点仍存活」「非法端口被拒绝」。这是源码重构后新增的集成测试。
+
+### 17.9 模拟裁判 referee_sim.py：4 个场景
+
+**`src/control_panel/control_panel/referee_sim.py（节选）`** · 源码第 **17–70** 行
+
+```python
+16 # HP and zone_status from COD_Behavior/test/test_{GoZone,OnZone,LowHp,Recover}.cpp.
+17 SCENARIOS = {
+18     'go_zone': (400, False),
+19     'on_zone': (400, True),
+20     'low_hp': (40, False),
+21     'recover': (200, False),
+22 }
+...
+40         self.game_state = self.create_publisher(GameState, 'game_state_sim', 10)
+41         self.zone_state = self.create_publisher(Bool, 'in_zone', 10)
+42         self.timer = self.create_timer(
+43             0.05, self.publish_state, clock=Clock(clock_type=ClockType.STEADY_TIME))
+...
+62     def publish_state(self):
+64         hp, in_zone = SCENARIOS[self.get_parameter('scenario').value]
+65         hp_override = self.get_parameter('hp_override').value
+66         self.zone_state.publish(Bool(data=in_zone))
+67         self.game_state.publish(GameState(
+68             game_progress=self.get_parameter('game_progress').value,
+69             current_hp=hp if hp_override == -1 else hp_override,
+70         ))
+```
+
+**逐行拆解**
+
+- **17–22** — 4 个预置场景，数值来自上游 COD 的测试：`go_zone`（400 血、不在区域）、`on_zone`（400 血、在区域）、`low_hp`（40 血、触发补给）、`recover`（200 血）。注意 `recover` 的 200 血**低于**默认恢复阈值 350——它模拟的是「还在补给中」的状态，想测「恢复巡逻」得切回 `go_zone` 或用 `hp_override` 给 350 以上。
+- **40–43** — 发布两个话题：`game_state_sim`（`GameState`）和 `in_zone`（`Bool`）。定时器 **20 Hz**（0.05 s），并且用 `STEADY_TIME` 单调时钟——系统校时跳变不会打乱发布节奏。
+- **46–60** — 参数校验回调拒绝非法值：`scenario` 必须是 4 个之一，`hp_override` 在 -1～65535，`game_progress` 在 0～5。
+- **62–70** — 每次把当前场景的血量 / 区域标志发出去，`hp_override` 非 -1 时覆盖血量。`game_progress` 默认 4（比赛进行中，对应 `decision_node.cpp:11` 的 `kGameRunning = 4`）。
+
+### 17.10 启动、参数与联调
+
+**`launch/qct_behavior.launch.py（节选）`**
+
+```python
+19     if IfCondition(LaunchConfiguration('simulate_referee')).evaluate(context):
+20         # 模拟模式覆盖裁判输入话题，避免同时沿用场地配置中的真实裁判话题。
+21         node_parameters.append({'game_state_topic': 'game_state_sim'})
+22         nodes.append(Node(
+23             package='control_panel', executable='control_panel', ...))
+32     nodes.append(Node(
+33         package='qct_behavior', executable='tree_1', ...))
+43     # 场地参数必须显式传入，防止误用其他地图的补给点和巡逻点。
+45     DeclareLaunchArgument('params_file', description='Site-specific decision parameters YAML'),
+```
+
+- `params_file` **没有默认值**，必须显式传，防止拿错场地的补给点和巡逻点。
+- `simulate_referee:=true` 时，先覆盖裁判话题为 `game_state_sim`，再把模拟裁判和决策节点放进**同一个命名空间**（保证相对话题名能对上）。
+- `referee_scenario` 可选 `go_zone` / `on_zone` / `low_hp` / `recover`。
+
+```bash
+# 复制场地参数模板，填好 home_pose 与 patrol_poses（map 系下的 x, y, yaw）
+cp -i "$QCT_WS/src/qct_behavior/config/sentry.yaml" "$QCT_MAP_DIR/sentry.yaml"
+
+# 启动决策 + 模拟裁判（定位与 Nav2 已在别处就绪）
+ros2 launch qct_behavior qct_behavior.launch.py \
+  params_file:="$QCT_MAP_DIR/sentry.yaml" \
+  simulate_referee:=true referee_scenario:=go_zone
+
+# 运行时切场景 / 看输入
+ros2 param set /referee_sim scenario low_hp
+ros2 topic echo /game_state_sim --once
+ros2 topic echo /in_zone --once
+```
+
+### 17.11 这一层特有的坑
+
+| # | 现象 | 说明 / 建议 |
+| --- | --- | --- |
+| 1 | 以为 `SelectHome` 成功就是到达了 | 动作节点只「选任务」，成功 ≠ 机器人到位；到达由 `navigation.cpp` 的结果回调确认 |
+| 2 | 给 `in_zone` 却没给 `zone_pose`（或反之） | 构造时抛异常拒绝启动；两项必须成对配置 |
+| 3 | `low_hp` ≥ `resume_hp` | 同样拒绝启动；且滞回逻辑要求前者小于后者，否则任务抖动 |
+| 4 | 重复播放同一帧里程计以为定位还在 | 消息时间戳去重，重复帧不刷新定位时效 |
+| 5 | 切任务时两个 Action 同时发 | 不会：`update_navigation()` 在旧目标结束前一直 return，绝不发新目标 |
+| 6 | Nav2 中途重启后决策一直挂起 | 确认 Nav2 重新 ACTIVE，再重启决策节点 |
+| 7 | 命名空间隔离后话题对不上 | 决策单独加命名空间时，里程计、Action、生命周期服务都要一起处理 |
+| 8 | 监看端口连不上以为决策挂了 | 端口冲突只打警告，决策照常跑；换个连续端口对重启即可 |
+
+> [!NOTE] 和前 16 章的关系
+> 决策包是**新增的一层**，它调用的是第 11、12 章讲的 Nav2（`navigate_to_pose` / `navigate_through_poses` Action 和 `bt_navigator` 生命周期），但**不修改** Nav2 的行为树（那是第 14 章的 `sentry_bringup/behavior_tree`）。两套行为树别混：`qct_behavior/behavior_tree/sentry.xml` 决定「去哪」，`sentry_bringup/behavior_tree/*.xml` 决定「怎么走、卡住怎么办」。
+
+## 18 · 实战速查：命令、验收点与排障清单
 
 *把前面所有概念落到「终端里敲什么」。首次使用务必分阶段，每段都有可观测的验收点。*
 
-### 17.1 推荐顺序
+### 18.1 推荐顺序
 
 | 阶段 | 入口 / 命令 | 验收点 |
 | --- | --- | --- |
@@ -4667,7 +4973,7 @@ geometry_msgs/Twist twist
 
 已有同一场地、同一坐标基准的两种地图时，可以从第 4 阶段开始。
 
-### 17.2 编译与环境
+### 18.2 编译与环境
 
 **`README_USAGE.md §1.1 的核心命令`** · 源码第 **1–10** 行
 
@@ -4707,7 +5013,7 @@ source "$QCT_WS/install/setup.bash"
 > [!CAUTION] 不要在工作区里跑驱动的 build.sh
 > README_USAGE.md 明确提醒：直接执行 Livox 驱动自带的 `build.sh` 会清理外层的 `build/`、`install/`，把整个工作区搞坏。用上面的 `colcon build` 统一构建。
 
-### 17.3 检查传感器与坐标系
+### 18.3 检查传感器与坐标系
 
 **`README_USAGE.md §2 的验收命令`** · 源码第 **1–7** 行
 
@@ -4728,7 +5034,7 @@ ros2 run tf2_ros tf2_echo yaw_link chassis_link
 - **5** — 起机器人模型（只有 `robot_state_publisher`）。
 - **6、7** — 查两条静态 TF 是否存在。查不到说明 URDF 或 `view_model.launch.py` 没起来。
 
-### 17.4 建图与保存地图
+### 18.4 建图与保存地图
 
 **`README_USAGE.md §3-4 的核心命令`** · 源码第 **1–14** 行
 
@@ -4761,7 +5067,7 @@ ros2 run nav2_map_server map_saver_cli -t /projected_map \
 > [!WARNING] 自制地图要成套替换
 > PCD + PNG + YAML 必须来自**同一轮建图**、同一坐标基准。另外二维地图 YAML 的 `origin` 只是图片左下角坐标，**不能拿来做 ICP 初值**。`map_saver_cli` 保存超时可加 `--ros-args -p map_subscribe_transient_local:=false`。
 
-### 17.5 重定位验收
+### 18.5 重定位验收
 
 **`README_USAGE.md §5.1 的命令`** · 源码第 **1–9** 行
 
@@ -4783,7 +5089,7 @@ ros2 topic hz /cloud_registered
 - **5** — 启动重定位；自制地图用 `prior_map:=` 传绝对路径。
 - **7–9** — 验收：`map → odom` 可查、位姿与现场一致、里程计与注册点云持续更新。配准成功后 `/prior_map` 与 `/transformed_cloud` 不再刷新。
 
-### 17.6 导航与一键启动
+### 18.6 导航与一键启动
 
 **`README_USAGE.md §7 的核心命令`** · 源码第 **1–9** 行
 
@@ -4806,7 +5112,7 @@ ros2 interface show rm_interfaces/msg/ChassisCmd
 - **5–8** — 检查生命周期状态、地图、导航 action、消息类型。
 - **9** — **速度链逐级排查**：`/cmd_vel_nav` → `/cmd_vel` → `/cmd_vel_in_yaw` → `/chassis_cmd`。
 
-### 17.7 常见报错排查表
+### 18.7 常见报错排查表
 
 | 现象 | 按这个顺序检查 |
 | --- | --- |
@@ -4829,11 +5135,11 @@ ros2 interface show rm_interfaces/msg/ChassisCmd
 
 ---
 
-## 18 · 全量陷阱清单与联调优先级
+## 19 · 全量陷阱清单与联调优先级
 
 *把散落在各章的「不一致 / 未闭环 / 易错点」集中起来，交作业或实车前过一遍。*
 
-### 18.1 配置与实现不一致（都是真的，不是猜测）
+### 19.1 配置与实现不一致（都是真的，不是猜测）
 
 | # | 位置 | 现象 | 后果 / 建议 |
 | --- | --- | --- | --- |
@@ -4860,37 +5166,37 @@ ros2 interface show rm_interfaces/msg/ChassisCmd
 | 21 | `view_model.launch.py:39-40` | 创建了 joint_state_publisher 和 RViz 对象但被注释 | 实际只起 1 个节点 |
 | 22 | 驱动 launch | `msg_MID360_launch.py`(CustomMsg) 与 `rviz_MID360_launch.py`(PointCloud2) | 不能同时启动，也不能互相替换 |
 
-### 18.2 功能边界：哪些事这套代码没做
+### 19.2 功能边界：哪些事这套代码没做
 
 - **没有 `/chassis_cmd` 的消费者**：找不到把底盘指令下发到电控的节点，实车要自己补串口/CAN 驱动。
 - **所有 URDF 关节都是 fixed**：云台相对底盘转动时，固定模型不能代替真实关节反馈。
-- **`control_panel` 不在默认入口**：只发模拟比赛状态，不启动导航或比赛决策。
+- **`control_panel` 不在默认入口**：只发模拟比赛状态和区域标志（`referee_sim.py`），不启动导航；比赛决策由独立的 `qct_behavior` 承担。
 - **`octomap_server` / Nav2 / PCL / MPPI 都是系统包**：源码不在本工作区，能改的只有参数与接线。
 - **定位精度与底盘闭环尚未在实车验证**：README 说明只在 Humble Docker 中用合成点云/IMU 验证过默认链路。
 
-### 18.3 联调前优先确认（源码导读给的顺序）
+### 19.3 联调前优先确认（源码导读给的顺序）
 
 1. **地图坐标**：确认 `prior_map:=` 的 PCD 与 Nav2 栅格 YAML 采用相同基准，并在 RViz 对照固定结构。
 2. **传感器外参**：核对扫描坐标系和 URDF 的 IMU、雷达安装关系；实车云台与底盘若相对转动，需要真实关节反馈。
 3. **定位就绪**：检查 `/icp_result`、`/localization_initial_pose`、`/state_estimation` 和 `map → chassis_link`，同时确认 RViz 中的实际位置与朝向。
 4. **运动闭环**：在执行器断开或仿真条件下验证路径、速度和恢复行为；仓库中未找到把 `/chassis_cmd` 下发到电控的节点。
 
-### 18.4 最后一句话
+### 19.4 最后一句话
 
 > [!TIP] 这套代码的主线其实很清晰
-> 雷达给点 → FAST-LIO 给位姿 → 地形分析把「离地多高」写进 intensity → 自定义插件据此画代价地图 → Nav2 用 Theta* + MPPI 算路径和速度 → 两个小节点把速度转成底盘消息。**所有复杂的、看起来吓人的文件，都是在这条主线上做「数据格式与坐标系的搬运」**。按这条线读，632 个文件就不再是 632 个谜题。
+> 雷达给点 → FAST-LIO 给位姿 → 地形分析把「离地多高」写进 intensity → 自定义插件据此画代价地图 → Nav2 用 Theta* + MPPI 算路径和速度 → 两个小节点把速度转成底盘消息。**所有复杂的、看起来吓人的文件，都是在这条主线上做「数据格式与坐标系的搬运」**。按这条线读，341 个文件就不再是 341 个谜题。
 
 需要回头查细节时，用页面顶部搜索框直接搜话题名、参数名或文件路径；想看整体，回第 02 章的总图。祝联调顺利。
 
 ---
 
-## 19 · 常用包全景：14 个包各自干什么、谁依赖谁
+## 20 · 常用包全景：15 个包各自干什么、谁依赖谁
 
 *前面按数据流讲完了代码，这一章换成「按包查」：想改某个功能，先知道该进哪个目录。*
 
 ROS 2 里的「包（package）」不是文件夹的俗称，而是**一个带 `package.xml` 的构建单元**。`colcon build` 以包为单位编译，`ros2 run 包名 可执行文件名` 里的「包名」取的正是 `package.xml` 里 `<name>` 标签的值，不是目录名。这一点在本工程里特别容易搞错。
 
-### 19.1 先纠正直觉：12 个顶层目录，其实是 14 个包 + 1 个系统库
+### 20.1 先纠正直觉：12 个顶层目录，其实是 15 个包 + 1 个系统库
 
 `src/` 下有 12 个顶层目录，但包的数量不是 12：`autonomous_exploration_development_environment` 里套了 3 个包、`nav2_plugins` 里套了 2 个包；而 `Livox-SDK2` 是纯 CMake 的 C++ SDK，**没有 `package.xml`**，不能被 `colcon build` 当作 ROS 包编译，必须先单独 `cmake --install`。
 
@@ -4903,8 +5209,9 @@ ROS 2 里的「包（package）」不是文件夹的俗称，而是**一个带 `
 | `autonomous_exploration_development_environment` | `terrain_analysis_ext` | 上游 CMU 移植 | 扩展版地形分析（分位数高程、考虑落差） | 节点 `terrainAnalysisExt`、`PCDPublisherNode`、`PCDSaverNode`、`pathNorm` |
 | `autonomous_exploration_development_environment` | `sensor_scan_generation` | 上游 CMU 移植 | 把注册点云搬回传感器原点，给 OctoMap 用 | 节点 `sensorScanGeneration` |
 | `cmd_chassis` | `cmd_chassis` | 自研 | 速度指令坐标变换 + 封装成底盘消息 | 节点 `twist2chassis_cmd`、`twist_transformer`、`fake_joint`、`rot_imu` |
-| `control_panel` | `control_panel` | 自研（ament_python） | Qt 界面模拟裁判系统，发比赛状态 | `control_panel.gui:main`、`publisher.py` |
+| `control_panel` | `control_panel` | 自研（ament_python） | **无界面**模拟裁判，按 4 场景发 `GameState` + `in_zone`（Qt 面板已删） | `control_panel.referee_sim:main`、`referee_sim.py` |
 | `icp_relocalization` | `icp_relocalization` | 自研 | 开机时把当前扫描对齐到已有地图，求出初始位姿 | 节点 `icp_node`、`transform_publisher`、`sac_ia_gicp`；2 个 launch |
+| `qct_behavior` | `qct_behavior` | 自研核心（ament_cmake） | 上层决策：读裁判/区域/里程计，跑决策树，用 Action 命令 Nav2 | 可执行 `tree_1`（5 个源文件）、`sentry.xml`、`sentry.yaml`、Groot 2 |
 | `livox_ros_driver2` | `livox_ros_driver2` | 第三方上游 | 把雷达原始数据包装成 ROS 2 话题 | 组件节点、`CustomMsg/CustomPoint.msg`、`launch_ROS2/`、config |
 | `nav2_plugins` | `costmap_intensity` | Nav2 插件改造 | 按 intensity（离地高度）过滤障碍点 | 共享库 `ObstacleLayerIntensity` / `VoxelLayerIntensity` + plugin XML |
 | `nav2_plugins` | `behavior_ext_plugins` | Nav2 插件改造 | 自定义恢复行为 `BackUpTwzFree` | 共享库 + plugin XML |
@@ -4917,22 +5224,23 @@ ROS 2 里的「包（package）」不是文件夹的俗称，而是**一个带 `
 > [!WARNING] 三个最容易写错的名字
 > ① 目录 `FAST_LIO` 的包名是小写 `fast_lio`；② 目录 `nav2_plugins`、`autonomous_exploration_development_environment` 都不是包，命令行里写它们一定报「package not found」；③ `Livox-SDK2` 压根不是 ROS 包，所以编译命令里才有 `--packages-skip livox_sdk2`。
 
-### 19.2 按「什么时候被用到」把包分成四组
+### 20.2 按「什么时候被用到」把包分成四组
 
 | 组 | 包 | 什么时候被用到 |
 | --- | --- | --- |
-| 全程都要 | `livox_ros_driver2`、`fast_lio`、`sentry_description`、`sentry_bringup`、`cmd_chassis` | 四条启动路径都会拉起；雷达、定位、TF、启动脚本、底盘转换缺一不可 |
+| 全程都要 | `livox_ros_driver2`、`fast_lio`、`sentry_description`、`sentry_bringup`、`cmd_chassis` | 四条导航路径都会拉起；雷达、定位、TF、启动脚本、底盘转换缺一不可 |
 | 只在建图 | `terrain_analysis`、`sensor_scan_generation`、`octomap_server`（系统包） | `mapping.launch.py` 里延时 8 秒后启动，配合 `/map_save` 存 PCD 和 PNG |
 | 只在重定位 | `icp_relocalization` | `relocalization.launch.py` 与一键入口；算出 `/icp_result` 后发 `map → odom` |
 | 只在导航 | `costmap_intensity`、`behavior_ext_plugins`、`nav2_*`（系统包） | `navigation.launch.py`；插件由 pluginlib 在运行期按 `nav2_params.yaml` 动态加载 |
 | 只在编译期 | `rm_interfaces`、`auto_aim_interfaces`、`Livox-SDK2` | 只提供消息类型/链接库，不产生运行时进程（`control_panel` 是可选调试工具） |
+| 上层决策（独立启动） | `qct_behavior`、`control_panel` | `qct_behavior.launch.py`；决策包给 Nav2 下目标，`control_panel` 提供模拟裁判 |
 
 1. **编译期：接口与 SDK**：`rm_interfaces` 生成 `ChassisCmd` 等消息类型；`Livox-SDK2` 提供 `.so`，`livox_ros_driver2` 链接它。
 2. **启动期：`sentry_bringup` 是总开关**：它一个包里放了 7 个 launch 文件，用 `IncludeLaunchDescription` 把别的包的 launch 串起来。
 3. **运行期：数据流跨包传递**：雷达话题 → `fast_lio` → `/state_estimation`、`/terrain_map` → `costmap_intensity` → Nav2 → `/cmd_vel` → `cmd_chassis` → `/chassis_cmd`。
 4. **插件期：不写在启动文件里**：`costmap_intensity` 和 `behavior_ext_plugins` 编译成 `.so`；Nav2 读 yaml 里的 `plugin:` 字符串，用 pluginlib 动态加载，launch 里看不到它们。
 
-### 19.3 package.xml 逐行拆：一个包怎么声明「我依赖谁」
+### 20.3 package.xml 逐行拆：一个包怎么声明「我依赖谁」
 
 以总装包 `sentry_bringup` 为例。它是全工程依赖最多、也最能说明 ROS 2 依赖语义的一份清单。
 
@@ -5002,7 +5310,7 @@ ROS 2 里的「包（package）」不是文件夹的俗称，而是**一个带 `
 | `test_depend` | 只有跑测试时需要 | `colcon test` | 测试失败 |
 | `<export>` | 向别的包导出信息（构建类型、插件 XML） | 被别的包 find_package / pluginlib 查询时 | 插件加载不到 |
 
-### 19.4 外部依赖：四类「别人写好的包」
+### 20.4 外部依赖：四类「别人写好的包」
 
 下面这些包不在 `src/` 里，而是 ROS 2 系统或 apt 安装的。读懂它们的分类，就能判断一个报错是「消息类型没装」「中间件问题」「算法库缺失」还是「构建工具没配好」。
 
@@ -5017,14 +5325,14 @@ ROS 2 里的「包（package）」不是文件夹的俗称，而是**一个带 `
 | 插件机制 | `pluginlib` | 把 `costmap_intensity` / `behavior_ext_plugins` 导出成可动态加载的插件 |
 | Nav2 运行时栈 | `nav2_bringup`、`nav2_map_server`、`nav2_controller`、`nav2_planner`、`nav2_bt_navigator`、`nav2_behaviors`、`nav2_velocity_smoother`、`nav2_lifecycle_manager`、`nav2_mppi_controller`、`nav2_constrained_smoother` | `navigation.launch.py` 里 9 个被 lifecycle_manager 管理的节点 + MPPI 控制器 + 平滑器 |
 | 可视化与工具 | `rviz2`、`robot_state_publisher`、`joint_state_publisher_gui`、`xacro`、`rosbag2`、`octomap_server` | 显示点云/地图、发布 URDF 静态 TF、录包、生成二维栅格地图 |
-| 界面与图像 | `python_qt_binding`、`cv_bridge`、`foxglove_msgs` | `control_panel` 的 Qt 窗口、`view_map.py` 的图像显示 |
+| 界面与图像 | `cv_bridge`、`foxglove_msgs` | `view_map.py` 的图像显示（`control_panel` 的 Qt 依赖已随面板删除） |
 | 算法库 | `PCL`、`Eigen3`、`OpenMP`、`ikd-Tree`、`IKFoM_toolkit`、`Livox-SDK2` | 点云滤波/配准、矩阵与流形运算、并行加速；后三个内嵌在 `FAST_LIO/include/` |
 | 构建工具 | `ament_cmake`、`ament_cmake_auto`、`rosidl_default_generators`、`rosidl_default_runtime`、`setuptools`、`PkgConfig` | C++ 包构建、`.msg` 生成代码、Python 包打包、探测系统库 |
 
 > [!NOTE] 「包」和「库」不是一回事
 > `rclcpp`、`geometry_msgs`、`nav2_bringup` 是 ROS **包**，用 `ros2 pkg list` 能查到；`PCL`、`Eigen3`、`OpenMP` 是 C++ **库**，在 `CMakeLists.txt` 里用 `find_package(PCL REQUIRED)` 找，用 `target_link_libraries` 链接。前者是 ROS 世界的组织单位，后者是编译世界的链接单位。
 
-### 19.5 消息接口包：rosidl_generate_interfaces 逐行
+### 20.5 消息接口包：rosidl_generate_interfaces 逐行
 
 `.msg` 文件只是文本，必须靠 `rosidl_generate_interfaces` 在编译期生成 C++/Python 类，才能在代码里 `#include <rm_interfaces/msg/chassis_cmd.hpp>`。
 
@@ -5104,9 +5412,9 @@ geometry_msgs/Twist twist
 - **15** — 控制量本体是 `geometry_msgs/Twist`，即 `linear.x/y/z` + `angular.x/y/z`。引用别的包的消息类型，正是 `DEPENDENCIES geometry_msgs` 存在的原因。
 
 > [!WARNING] 17 个 .msg，只有 6 个能用
-> `msg/referee/` 下 13 个文件里有 11 个被 CMakeLists 注释掉，包括看起来很像在用的 `GameStatus.msg`。`control_panel/publisher.py` 导入的其实是 `GameState.msg`。**看消息能不能用，要看 CMakeLists 而不是看目录里有没有文件。**
+> `msg/referee/` 下 13 个文件里有 11 个被 CMakeLists 注释掉，包括看起来很像在用的 `GameStatus.msg`。`control_panel/referee_sim.py` 导入的其实是 `GameState.msg`。**看消息能不能用，要看 CMakeLists 而不是看目录里有没有文件。**
 
-### 19.6 按场景查包：我想改 X，该进哪个目录
+### 20.6 按场景查包：我想改 X，该进哪个目录
 
 | 我想… | 该看的包 | 具体文件 / 位置 |
 | --- | --- | --- |
@@ -5128,13 +5436,13 @@ geometry_msgs/Twist twist
 
 ---
 
-## 20 · C++ 常用函数逐行拆解：节点骨架与消息收发
+## 21 · C++ 常用函数逐行拆解：节点骨架与消息收发
 
 *把散落在各章的 rclcpp / QoS / tf2 调用抽出来，集中讲「这个函数到底在干什么」。*
 
 这一章只讲**在本仓库里真实出现、而且反复出现**的函数。所有示例都带真实行号，点「逐行拆解」的行号可以跳到代码里对应位置。读懂这一章，再看任何一个新节点都会是同一套骨架。
 
-### 20.1 一个 ROS 2 节点从生到死，只有三行
+### 21.1 一个 ROS 2 节点从生到死，只有三行
 
 **`src/icp_relocalization/src/icp_node.cpp（第 354-360 行）`** · 源码第 **354–360** 行
 
@@ -5159,7 +5467,7 @@ int main(int argc, char *argv[])
 > [!TIP] 两种消息循环
 > 多数节点用阻塞的 `rclcpp::spin(node)`；但 `terrainAnalysis.cpp` 那类 CMU 移植节点用的是 `rclcpp::spin_some(nh)` 配一个手写 `while` 循环（一次只处理已到达的消息，立刻返回继续算）。而门控脚本用的是 Python 的 `rclpy.spin_once(node, timeout_sec=0.1)`。三者是同一个思路的不同写法。
 
-### 20.2 rclcpp 函数速查表
+### 21.2 rclcpp 函数速查表
 
 | 函数 / 类 | 白话作用 | 本仓库里的位置 | 最容易踩的坑 |
 | --- | --- | --- | --- |
@@ -5177,7 +5485,7 @@ int main(int argc, char *argv[])
 | `RCLCPP_INFO/WARN/ERROR` / `_THROTTLE` | 打日志 / 限频打日志 | `laserMapping.cpp:468,1061` | 第一参数必须是 `get_logger()`；THROTTLE 第二参数是 `*get_clock()`，单位是毫秒 |
 | `this->now()` / `get_clock()->now()` | 取 ROS 时间戳 | `icp_node.cpp:113` | 别用系统时间，否则和 TF / 消息时间不同步 |
 
-### 20.3 一段代码看全「发布 / 订阅 / QoS / TF / 定时器 / 服务」
+### 21.3 一段代码看全「发布 / 订阅 / QoS / TF / 定时器 / 服务」
 
 **`src/FAST_LIO/src/laserMapping.cpp（第 425-454 行）`** · 源码第 **425–454** 行
 
@@ -5227,7 +5535,7 @@ map_save_srv_ = this->create_service<std_srvs::srv::Trigger>("map_save", std::bi
 - **451、452** — 1 Hz 的地图发布定时器，和主循环分开，避免每帧都发整张地图。
 - **454** — `/map_save` 服务：`std_srvs/srv/Trigger`，建完图用 `ros2 service call /map_save std_srvs/srv/Trigger` 触发保存 PCD。服务回调需要 `_1`（请求）和 `_2`（响应）两个占位符。
 
-### 20.4 QoS：为什么同一个工程里有两种写法
+### 21.4 QoS：为什么同一个工程里有两种写法
 
 **`src/icp_relocalization/src/transform_publisher.cpp（第 24-34 行）`** · 源码第 **24–34** 行
 
@@ -5264,7 +5572,7 @@ timer_ = this->create_wall_timer(std::chrono::milliseconds(100), [this]() { publ
 > [!WARNING] QoS 不兼容 = 静默失联
 > `reliable` 的发布者可以配 `best_effort` 的订阅者，但**反过来不行**。用 `ros2 topic info /话题 --verbose` 查两端的 Reliability / Durability，比反复看代码快得多。
 
-### 20.5 tf2：查一次变换的完整套路
+### 21.5 tf2：查一次变换的完整套路
 
 **`src/cmd_chassis/src/twist_transformer.cpp（第 24-33 行）`** · 源码第 **24–33** 行
 
@@ -5298,7 +5606,7 @@ catch (tf2::TransformException &ex)
 | `tf2::Quaternion` + `Matrix3x3::getRPY` | 四元数 → 滚转/俯仰/偏航 | `twist_transformer.cpp:35-42` | 构造顺序是 `(x,y,z,w)`；getRPY 是输出引用 |
 | `tf2::fromMsg` | ROS 消息 → tf2 对象 | `transform_publisher.cpp:43,61` | 和 `toMsg` 方向别搞反 |
 
-### 20.6 纠偏：这些「常见函数」在本仓库其实没有出现
+### 21.6 纠偏：这些「常见函数」在本仓库其实没有出现
 
 网上抄 ROS 2 教程时很容易把这些名字带进来。实际全仓库 grep 是 0 命中，讲错了会误导排查方向。
 
@@ -5313,7 +5621,7 @@ catch (tf2::TransformException &ex)
 | `doTransform` / `rclcpp::PublisherOptions` | 0 命中；tf2 只用 `lookupTransform` + `fromMsg` |
 | `std::sort` 求分位数 | `terrainAnalysisExt.cpp` 里是手写下标 `int(quantileZ * size)`，`pathNorm.cpp` 的 `std::sort` 被注释掉了 |
 
-### 20.7 一句话把函数串成主链路
+### 21.7 一句话把函数串成主链路
 
 1. **`rclcpp::init` → `Node` 构造函数**：`declare_parameter` 读 yaml → `create_subscription(SensorDataQoS)` 收雷达/IMU → 建好发布者与 TF 三件套。
 2. **回调里：`pcl::fromROSMsg`**：ROS 点云字节流翻译成 PCL 点云，再做体素下采样。
@@ -5324,13 +5632,13 @@ catch (tf2::TransformException &ex)
 
 ---
 
-## 21 · launch 与 Python 常用函数逐行拆解
+## 22 · launch 与 Python 常用函数逐行拆解
 
 *不改一行 C++，只靠 launch 就能换话题名、换参数、改启动顺序。这一章讲清每个函数。*
 
 `launch` 文件是 Python 脚本，但**不是普通脚本**：它不直接启动进程，而是构造一棵「动作描述树」，由 `ros2 launch` 解释执行。所以很多对象（如 `LaunchConfiguration`）在写的时候还没有值，要到运行期才能 `.perform(context)` 求值——这是新手最不适应的一点。
 
-### 21.1 最小骨架与那个著名的 8 秒延时
+### 22.1 最小骨架与那个著名的 8 秒延时
 
 **`src/sentry_bringup/launch/mapping.launch.py（第 65-82 行）`** · 源码第 **65–82** 行
 
@@ -5367,7 +5675,7 @@ return ld
 > [!WARNING] 固定 8 秒不等于「等就绪」
 > `TimerAction` 是纯计时器，不检测话题是否真的有数据。慢机器 / 雷达晚启动时会失效。`bringup_without_relocalization.py` 里还有 10 秒版本；真正靠谱的是一键入口的 `OnProcessExit` + `wait_for_localization.py` 事件门控（见 21.5）。
 
-### 21.2 launch 函数速查表
+### 22.2 launch 函数速查表
 
 | 函数 / 类 | 白话作用 | 真实位置 | 最容易踩的坑 |
 | --- | --- | --- | --- |
@@ -5394,7 +5702,7 @@ return ld
 | `FindPackageShare` / `get_package_share_directory` | 查包安装后的 share 路径 | `view_model.launch.py:13`、`navigation.launch.py:34` | 传的是 package.xml 的 name，`fast_lio` ≠ 目录 `FAST_LIO` |
 | `LoadComposableNodes` / `ComposableNode` | 组合模式加载 Nav2 节点 | `navigation.launch.py:216,220` | 要 `target_container` 已存在、`plugin` 写全限定类名 |
 
-### 21.3 LaunchConfiguration + OpaqueFunction：启动期防呆逐行
+### 22.3 LaunchConfiguration + OpaqueFunction：启动期防呆逐行
 
 **`src/sentry_bringup/launch/relocalization.launch.py（第 12-18 行）`** · 源码第 **12–18** 行
 
@@ -5417,7 +5725,7 @@ def validate_icp_input(context):
 - **16、17** — 如果选了 SAC-IA+GICP 或 PointCloud2 输入，却把点云话题指到 FAST-LIO 的**输出**（`cloud_registered` / `Laser_map` 等），说明用户把「独立原始扫描」和「已配准地图」搞混了。
 - **18** — 直接 `raise RuntimeError` 让 `ros2 launch` 立刻失败并打印原因，比让 ICP 默默算出错误位姿安全得多。
 
-### 21.4 三层参数改写逐行：ReplaceString → RewrittenYaml → ParameterFile
+### 22.4 三层参数改写逐行：ReplaceString → RewrittenYaml → ParameterFile
 
 **`src/sentry_bringup/launch/navigation.launch.py（第 68-81 行）`** · 源码第 **68–81** 行
 
@@ -5448,7 +5756,7 @@ configured_params = ParameterFile(
 > [!WARNING] 自定义 params_file 会让路径替换失效
 > 一旦用 `params_file:=xxx.yaml` 传了自定义配置，第 77 行的 `LaunchConfigurationEquals` 条件不成立，硬编码的 `/home/sentry_ws/...` 就不会被替换，Nav2 会找不到行为树 XML 或地图文件。这时必须自己把自定义 YAML 里的三个绝对路径改对。
 
-### 21.5 事件门控逐行：OnProcessExit 怎么决定要不要启动 Nav2
+### 22.5 事件门控逐行：OnProcessExit 怎么决定要不要启动 Nav2
 
 **`src/sentry_bringup/launch/bringup_all_in_one.launch.py（第 39-65 行）`** · 源码第 **39–65** 行
 
@@ -5528,7 +5836,7 @@ def ready(self):
 4. **`node.ready()` 为真 → `return 0`**：`main()` 返回 0 → `raise SystemExit(main())` 让进程退出码为 0。
 5. **退出码 0 → `after_gate` 返回 `[start_navigation]`**：Nav2 这才被启动；超时或失败则退出码 1 → `Shutdown`。
 
-### 21.6 rclpy / 标准库常用函数
+### 22.6 rclpy / 标准库常用函数
 
 | 函数 | 白话作用 | 位置 | 坑 |
 | --- | --- | --- | --- |
@@ -5550,13 +5858,13 @@ def ready(self):
 
 ---
 
-## 22 · 算法与数学库函数逐行：PCL / Eigen / ikd-Tree / ICP / IEKF
+## 23 · 算法与数学库函数逐行：PCL / Eigen / ikd-Tree / ICP / IEKF
 
 *前面讲的是「搬运数据的函数」，这一章讲「真正算东西的函数」。*
 
 点云、姿态、地图匹配都是数学运算。这一章把主链路上高频出现的库函数按「消息翻译 → 降采样 → 特征提取 → 状态估计 → 配准」的顺序讲一遍，每个都配真实源码和逐行拆解。
 
-### 22.1 函数速查表
+### 23.1 函数速查表
 
 | 类别 | 函数 / 类 | 白话作用 | 位置 | 坑 |
 | --- | --- | --- | --- | --- |
@@ -5577,7 +5885,7 @@ def ready(self):
 | 数学 | `std::atan2` / `hypot` / 手写 quantile | 求角度 / 距离 / 分位数高程 | `back_up_twz_free_action.cpp:232,288`、`terrainAnalysisExt.cpp:495` | `atan2(y,x)` 返回弧度，转角度要 `*57.3` |
 | 四元数 | `tf2::Quaternion` / `Matrix3x3::getRPY` | 四元数 ↔ RPY | `terrainAnalysis.cpp:127-129` | 构造顺序 `(x,y,z,w)` |
 
-### 22.2 消息翻译 + 降采样逐行
+### 23.2 消息翻译 + 降采样逐行
 
 **`src/autonomous_exploration_development_environment/src/terrain_analysis_ext/src/terrainAnalysisExt.cpp（第 140-146 行）`** · 源码第 **140–146** 行
 
@@ -5617,7 +5925,7 @@ RCLCPP_INFO(this->get_logger(), "Downsampled input cloud to %d data points", inp
 > [!TIP] 为什么到处都要降采样
 > MID360 一帧可能有几万个点，逐点做最近邻/配准太慢。体素滤波把点数压到几千，既保留几何形状又省算力。建图、地形分析、ICP 三处各降一次，参数分别是 `scanVoxelSize`、`cloud_voxel_leaf_size` 等，可在各自的 yaml 里调。
 
-### 22.3 不转 PCL，按字段名直接遍历：PointCloud2ConstIterator 逐行
+### 23.3 不转 PCL，按字段名直接遍历：PointCloud2ConstIterator 逐行
 
 **`src/nav2_plugins/costmap_intensity/plugins/obstacle_layer.cpp（第 415-433 行）`** · 源码第 **415–433** 行
 
@@ -5654,7 +5962,7 @@ for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z,++iter_intensity) {
 > [!CAUTION] voxel_layer.cpp 里有一个真实的类型错配
 > `costmap_intensity/plugins/voxel_layer.cpp:151` 用 `PointCloud2ConstIterator<uint8_t>` 去读 `intensity`，但 `/terrain_map` 的 intensity 是 `float32`；而且它没有 `min_obstacle_intensity` 下限判断。如果 yaml 把插件从 `ObstacleLayerIntensity` 换成 `VoxelLayerIntensity`，过滤行为会完全不同。
 
-### 22.4 ICP 配准逐行：开机时怎么算出「我在哪」
+### 23.4 ICP 配准逐行：开机时怎么算出「我在哪」
 
 **`src/icp_relocalization/src/icp_node.cpp（第 133-165 行）`** · 源码第 **133–165** 行
 
@@ -5709,7 +6017,7 @@ if (fitness_score < fitness_score_thre && icp.hasConverged())
 - **160–162** — 构造 `PoseWithCovarianceStamped`，时间戳沿用输入点云的，`frame_id` 设为 `map`。
 - **163–165** — 4×4 矩阵的最后一列前三项就是平移 `(x,y,z)`，填进 `pose.pose.position`（两层 `pose` 别写少）。
 
-### 22.5 IEKF 状态估计逐行：FAST-LIO 的心脏
+### 23.5 IEKF 状态估计逐行：FAST-LIO 的心脏
 
 **`src/FAST_LIO/include/use-ikfom.hpp（第 6-21 行）`** · 源码第 **6–21** 行
 
@@ -5760,7 +6068,7 @@ geoQuat.w = state_point.rot.coeffs()[3];
 - **1182** — 把 IMU 系位置换算成雷达系位置：加上经姿态旋转后的雷达→IMU 外参平移。
 - **1183–1186** — `rot.coeffs()` 给出四元数四个分量，按顺序填进 `geometry_msgs::msg::Quaternion`，随后用于 `/Odometry` 和 TF 广播。
 
-### 22.6 ikd-Tree：增量地图的最近邻搜索
+### 23.6 ikd-Tree：增量地图的最近邻搜索
 
 **`src/FAST_LIO/src/laserMapping.cpp（第 191-198 行）`** · 源码第 **191–199** 行
 
@@ -5793,7 +6101,7 @@ if (ekfom_data.converge)
 
 全库业务调用集中在 `laserMapping.cpp` 一个文件，实现约 1300 行在 `FAST_LIO/include/ikd-Tree/ikd_Tree.cpp`。
 
-### 22.7 一个必须记住的「字段挪用」：curvature 其实是时间戳
+### 23.7 一个必须记住的「字段挪用」：curvature 其实是时间戳
 
 **`src/FAST_LIO/src/preprocess.cpp（第 218-232 行）`** · 源码第 **218–232** 行
 
@@ -5826,7 +6134,7 @@ added_pt.curvature = pl_orig.points[i].t * time_unit_scale;
 > [!NOTE] 为什么需要逐点时间戳
 > 雷达一帧不是「同一瞬间拍的照片」，而是激光头转一圈扫出来的，第一个点和最后一个点差几十毫秒；这段时间里机器人在动，点云会被「拖歪」。有了每个点的时间偏移，就能用 IMU 把每个点补偿到同一时刻，这叫**去畸变 / de-skew**。同理，`terrain_analysis` 输出的 `intensity` 也被挪用了——那里存的是离地高度 `disZ`。**读这份代码时，永远先确认字段的真实语义，别被名字骗了。**
 
-### 22.8 Nav2 插件里的服务客户端逐行
+### 23.8 Nav2 插件里的服务客户端逐行
 
 **`src/nav2_plugins/behavior_ext_plugins/plugins/back_up_twz_free_action.cpp（第 59-95 行）`** · 源码第 **59–95** 行
 
@@ -5891,13 +6199,13 @@ Status BackUpTwzFree::onRun(const std::shared_ptr<const BackUpAction::Goal> comm
 
 ---
 
-## 23 · 函数与包速查索引：想改 X，该去哪、调什么
+## 24 · 函数与包速查索引：想改 X，该去哪、调什么
 
-*把前面 22 章压成一张反查表。实车联调、交作业、面试讲解时直接翻这一章。*
+*把前面 23 章压成一张反查表。实车联调、交作业、面试讲解时直接翻这一章。*
 
 这一章不引入新概念，只做**反查**：从「我想干什么」出发，定位到包、文件、函数、参数。
 
-### 23.1 需求 → 包 / 文件 / 函数
+### 24.1 需求 → 包 / 文件 / 函数
 
 | 我想… | 包 | 文件 + 函数 / 参数 |
 | --- | --- | --- |
@@ -5911,6 +6219,9 @@ Status BackUpTwzFree::onRun(const std::shared_ptr<const BackUpAction::Goal> comm
 | 改障碍高度过滤 | `costmap_intensity` | `obstacle_layer.cpp:424-433`；yaml 的 `min/max_obstacle_intensity` |
 | 改全局规划器 / 控制器 | `sentry_bringup` | `params/nav2_params.yaml`：`GridBased.plugin`（Theta*）、`FollowPath`（MPPI） |
 | 改恢复行为 | `behavior_ext_plugins` | `back_up_twz_free_action.cpp::onCycleUpdate`（自由方向 → `vx/vy`） |
+| 改「去哪」的战术优先级 | `qct_behavior` | `behavior_tree/sentry.xml` 的 `Fallback` 排列（补给 / 区域 / 巡逻） |
+| 改血量补给阈值 / 巡逻模式 | `qct_behavior` | `config/sentry.yaml`：`low_hp`/`resume_hp`、`patrol_mode` |
+| 改决策树节点或开 Groot 监看 | `qct_behavior` | `src/behavior_tree.cpp::initialize_tree`、`groot_server_port:2667` |
 | 改底盘指令类型 | `cmd_chassis` + `rm_interfaces` | `twist2chassis_cmd.cpp`（`chassis_msg_.type = 2`）、`ChassisCmd.msg` |
 | 改速度坐标系旋转 | `cmd_chassis` | `twist_transformer.cpp::lookupTransform` + `cos/sin(yaw)` |
 | 改 TF 外参 | `sentry_description` | `urdf/sentry_description.urdf` 的 `imu_joint` 等固定关节 |
@@ -5919,7 +6230,7 @@ Status BackUpTwzFree::onRun(const std::shared_ptr<const BackUpAction::Goal> comm
 | 加一个新消息类型 | `rm_interfaces` | `msg/*.msg` + `CMakeLists.txt::rosidl_generate_interfaces` |
 | 加一个插件 | `nav2_plugins` | `PLUGINLIB_EXPORT_CLASS` + plugin XML + `nav2_params.yaml` 的 `plugin:` |
 
-### 23.2 函数 → 归属包（看到陌生函数先查这张表）
+### 24.2 函数 → 归属包（看到陌生函数先查这张表）
 
 | 函数 / 类 | 来自哪里 | 属于哪一层 |
 | --- | --- | --- |
@@ -5940,8 +6251,9 @@ Status BackUpTwzFree::onRun(const std::shared_ptr<const BackUpAction::Goal> comm
 | `PLUGINLIB_EXPORT_CLASS` | `pluginlib` | 插件注册 |
 | `rosidl_generate_interfaces` / `ament_package()` | `rosidl_default_generators` / `ament_cmake` | 构建工具 |
 | `validate_icp_input` / `after_gate` / `ready()` | `sentry_bringup`（自定义） | 本工程自研逻辑 |
+| `tickExactlyOnce` / `registerSimpleAction` / `Groot2Publisher` | `qct_behavior`（BehaviorTree.CPP v4） | 上层决策 |
 
-### 23.3 常用命令速查
+### 24.3 常用命令速查
 
 **`终端命令速查（依据 README_USAGE.md 与 docs/CODEBASE_GUIDE.md 整理）`** · 源码第 **1–16** 行
 
@@ -5955,6 +6267,10 @@ ros2 launch sentry_bringup relocalization.launch.py
 ros2 launch sentry_bringup navigation.launch.py
 ros2 launch sentry_bringup bringup_all_in_one.launch.py
 
+ros2 launch qct_behavior qct_behavior.launch.py \
+  params_file:="/path/to/sentry.yaml" simulate_referee:=true referee_scenario:=go_zone
+ros2 param set /referee_sim scenario low_hp
+
 ros2 topic hz /livox/lidar
 ros2 topic echo /state_estimation --once
 ros2 topic info /icp_result --verbose
@@ -5967,14 +6283,15 @@ ros2 lifecycle get /map_server
 **逐行拆解**
 
 - **1、2** — 每个新终端都要先加载 ROS 环境，再加载本工作区环境（顺序不能反）。
-- **4** — 确认 14 个包都编译安装成功；包名是 `fast_lio` 不是 `FAST_LIO`。
-- **5–8** — 四条路径：建图 → 重定位 → 导航 → 一键（含定位门控）。
+- **4** — 确认 15 个包都编译安装成功；包名是 `fast_lio` 不是 `FAST_LIO`。
+- **5–8** — 四条导航路径：建图 → 重定位 → 导航 → 一键（含定位门控）。
+- **决策块** — 单独启动 `qct_behavior` 并打开模拟裁判；运行时用 `ros2 param set /referee_sim scenario low_hp` 切场景，验证低血量是否触发回补给。
 - **10–12** — 查雷达频率、看一帧里程计、查 `/icp_result` 两端的 QoS 是否兼容。
 - **13** — 导出 TF 树 PDF，检查 `map → odom → base_link → yaw_link → chassis_link` 是否完整。
 - **14** — 建完图触发保存 PCD（对应 `create_service("map_save")`）。
 - **15、16** — 查 FAST-LIO 是否处于先验地图模式、查 Nav2 生命周期节点状态。
 
-### 23.4 新手最常踩的 10 个坑（按出现频率排）
+### 24.4 新手最常踩的 10 个坑（按出现频率排）
 
 1. **把目录名当包名**：`FAST_LIO` 目录的包叫 `fast_lio`；`nav2_plugins` 目录里是 2 个包；`Livox-SDK2` 不是 ROS 包。
 2. **只看源码不看 launch 的 remap**：源码发布 `/Odometry`，实际频道是 `/state_estimation`；漏看会以为下游没数据。
@@ -5986,11 +6303,12 @@ ros2 lifecycle get /map_server
 8. **`PointCloud2ConstIterator` 类型写错或迭代器不同步 `++`**：`voxel_layer.cpp` 用 `uint8_t` 读 `float32` intensity 是现成的反例。
 9. **ICP 的 Source / Target 设反**：Source 是要被搬动的当前帧，Target 是不动的地图。
 10. **以为 `.msg` 文件存在就能用**：`rm_interfaces` 17 个消息只有 6 个被 `rosidl_generate_interfaces` 编译。
+11. **把决策包漏掉**：`qct_behavior` 独立启动、不在导航链路上，但它才是「去哪」的大脑；`SelectHome` 成功只表示选好任务，不代表机器人已到达。
 
-### 23.5 最后一句话
+### 24.5 最后一句话
 
 > [!TIP] 读这份代码的心法
-> **先找数据的入口和出口，再看中间怎么算，最后才看算法细节。** 每个节点都逃不出「订阅什么 → 在回调里算什么 → 发布什么 → 广播什么 TF」这四步；每个包都逃不出「package.xml 声明依赖 → CMakeLists 声明产物 → launch 决定何时启动」这三步。把这两套骨架记住，632 个文件就不再是 632 个问题。
+> **先找数据的入口和出口，再看中间怎么算，最后才看算法细节。** 每个节点都逃不出「订阅什么 → 在回调里算什么 → 发布什么 → 广播什么 TF」这四步；每个包都逃不出「package.xml 声明依赖 → CMakeLists 声明产物 → launch 决定何时启动」这三步。把这两套骨架记住，341 个文件就不再是 341 个问题。
 
 > 源码里能追到 ROS 消息发布，未看到消费这条消息并下发到电控的节点。
 >
